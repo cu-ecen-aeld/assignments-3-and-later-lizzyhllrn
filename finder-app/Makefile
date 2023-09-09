@@ -7,7 +7,7 @@ CC = $(CROSS_COMPILE)gcc
 all: $(TARGET)
 
 $(TARGET) : $(OBJS)
-	$(CC) $(OBJS) -o $(TARGET) 
+	$(CC) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 clean:
 	-rm -f *.o $(TARGET) 

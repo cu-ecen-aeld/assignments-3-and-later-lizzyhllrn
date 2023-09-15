@@ -8,7 +8,7 @@ set -u
 #clean any previous artifacts
 make clean
 #compile with native compilation
-make
+#make
 
 NUMFILES=10
 WRITESTR=AELD_IS_FUN

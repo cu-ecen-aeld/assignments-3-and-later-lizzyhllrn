@@ -1,4 +1,8 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -16,8 +20,16 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
+  int callreturn;
+  callreturn = system(cmd);
+  if ( callreturn<0)
+  {
+  return false;
+  
+  } else
+  {
     return true;
+    }
 }
 
 /**
@@ -58,10 +70,39 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
+/*  char * commands[count];
+  for(i=0; i<count-1; i++)
+    {
+        commands[i]=command[i+1];
+    }
+*/
+  int kidpid;
+  switch(kidpid = fork())
+    {
+      case -1: perror("fork"); abort();
+      case 0:
+      {
+          if (execv(command[0], command) <0)
+          {
+          return false;
+          }
+      }
+      default:
+      {
+      int wstatus;
+      wait(&wstatus);
+      return true;
+      }
+    }
+      
+        
+  //int callret = execv(command[0], commands);
+  //wait(NULL);
+
 
     va_end(args);
 
-    return true;
+    return false;
 }
 
 /**
@@ -92,6 +133,27 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+  char * commands[count];
+  for(i=0; i<count-1; i++)
+    {
+        commands[i]=command[i+1];
+    }
+
+  int kidpid;
+  int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+  if (fd < 0) { perror("open"); abort(); }
+  switch (kidpid = fork()) {
+      case -1: perror("fork"); abort();
+      case 0:
+          if (dup2(fd, 1) < 0) { perror("dup2"); abort(); }
+                close(fd);
+                execv(command[0], commands);
+                wait(NULL);
+                
+      default:
+          close(fd);
+
+}
 
     va_end(args);
 

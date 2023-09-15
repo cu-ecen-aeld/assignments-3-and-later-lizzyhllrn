@@ -131,25 +131,35 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
-  char * commands[count];
-  for(i=0; i<count-1; i++)
-    {
-        commands[i]=command[i+1];
-    }
 
   int kidpid;
   int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
   if (fd < 0) { perror("open"); abort(); }
   switch (kidpid = fork()) {
-      case -1: perror("fork"); abort();
+      case -1: 
+      {
+        perror("fork");
+        return false;
+      }
       case 0:
-          if (dup2(fd, 1) < 0) { perror("dup2"); abort(); }
-                close(fd);
-                execv(command[0], commands);
-                wait(NULL);
-                
+      {
+        if (dup2(fd, 1) < 0) { perror("dup2"); abort(); }
+        callret = execv(command[0], command);
+        close(fd);
+        if ( callret <0)
+        {
+          return false;
+        } else {
+        return true;
+        }
+      }    
       default:
+      {
+      int wstatus;
           close(fd);
+      wait(&wstatus);
+      return !wstatus;
+      }
 
 }
 

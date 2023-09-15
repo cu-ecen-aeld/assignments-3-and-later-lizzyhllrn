@@ -59,7 +59,7 @@ bool do_exec(int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 /*
  * TODO:
@@ -70,35 +70,33 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-/*  char * commands[count];
-  for(i=0; i<count-1; i++)
-    {
-        commands[i]=command[i+1];
-    }
-*/
+
   int kidpid;
+  int callret;
   switch(kidpid = fork())
     {
-      case -1: perror("fork"); abort();
-      case 0:
+      case -1: 
       {
-          if (execv(command[0], command) <0)
-          {
+        perror("fork");
+        return false;
+      }
+      case 0: //fork returns 0 for child
+      {
+        callret = execv(command[0], command);
+        if ( callret <0)
+        {
           return false;
-          }
+        } else {
+        return true;
+        }
       }
       default:
       {
       int wstatus;
       wait(&wstatus);
-      return true;
+      return !wstatus;
       }
     }
-      
-        
-  //int callret = execv(command[0], commands);
-  //wait(NULL);
-
 
     va_end(args);
 

@@ -71,36 +71,67 @@ bool do_exec(int count, ...)
  *
 */
 
-  int kidpid;
+/*
+  // errn;
   int callret;
-  switch(kidpid = fork())
-    {
-      case -1: 
+  pid_t kidpid = fork();
+  if (kidpid == 0) { //this is this child
+    callret = execv(command[0], command);
+    if (callret < 0) {return false;}
+   // exit(errno);
+  } else if (kidpid > 0)
+  {
+      int wstatus = 0;
+      int wret = wait(&wstatus);
+      if (wret < 0)
       {
-        perror("fork");
+      // errn=errno;
         return false;
       }
-      case 0: //fork returns 0 for child
+  } else {
+ //  errn=errno;
+    return false;
+  }
+  
+*/
+  //------------------------
+  bool call_status = true;
+  pid_t kidpid;
+  switch(kidpid = fork())
+    {
+      case -1: //there was an error with the fork
       {
-        callret = execv(command[0], command);
+        printf("\nI'm in the error case\n");
+        perror("fork");
+        call_status = false;
+      }
+      case 0: //fork returns 0 for child, attempt to start new process
+      {
+        int callret = execv(command[0], command);
+        printf("\nI'm in the child process; callret is %d\n", callret);
         if ( callret <0)
         {
-          return false;
-        } else {
-        return true;
-        }
+          call_status = false;
+        } 
       }
-      default:
+      default: //other returns for parent
       {
-      int wstatus;
-      wait(&wstatus);
-      return !wstatus;
+      printf("\nI'm in the parent process\n");
+      int wstatus = 0;
+      int wret = waitpid(kidpid, &wstatus, 0);
+      printf("\nwret is %d\n", wret);
+      if (wret < 0)
+      {
+        call_status = false;
+      } else if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus))
+      {
+        call_status = false;
+      }
       }
     }
-
     va_end(args);
 
-    return false;
+    return call_status;
 }
 
 /**
@@ -121,7 +152,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    //command[count] = command[count];
 
 
 /*
@@ -133,6 +164,9 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 */
 
   int kidpid;
+  int callret;
+  
+  
   int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0644);
   if (fd < 0) { perror("open"); abort(); }
   switch (kidpid = fork()) {

@@ -6,7 +6,7 @@ set -e
 set -u
 
 #clean any previous artifacts
-make clean
+#make clean
 #compile with native compilation
 #make
 

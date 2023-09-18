@@ -74,7 +74,10 @@ then
 git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
-    # TODO:  Configure busybox
+    # TODO:  Configure busyboxv/lib
+    make distclean
+    make defconfig
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 
 else
     cd busybox
@@ -82,10 +85,8 @@ fi
 
 # TODO: Make and install busybox
 echo "about to make and install busybox"
-make distclean
-make defconfig
-make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
-make CONFIG_PREFIX=${OUTDIR}/busybox ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
+
+make CONFIG_PREFIX=${OUTDIR}/rootfs ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
 echo "Library dependencies"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
@@ -114,9 +115,7 @@ cp ${appdir}/writer ${OUTDIR}/rootfs/home
 cp ${appdir}/finder.sh ${OUTDIR}/rootfs/home
 cp ${appdir}/finder-test.sh ${OUTDIR}/rootfs/home
 cp ${appdir}/autorun-qemu.sh ${OUTDIR}/rootfs/home
-cp ${appdir}/dependencies.sh ${OUTDIR}/rootfs/home
-cp ${appdir}/start-qemu-app.sh ${OUTDIR}/rootfs/home
-cp ${appdir}/start-qemu-terminal.sh ${OUTDIR}/rootfs/home
+cp -ra ${appdir}/conf ${OUTDIR}/rootfs/home/conf
 
 
 # TODO: Chown the root directory

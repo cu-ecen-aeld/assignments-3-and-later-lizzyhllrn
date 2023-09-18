@@ -5,15 +5,16 @@
 set -e
 set -u
 
-OUTDIR=/tmp/aeld/linux-stable
+OUTDIR=/tmp/aeld2
 KERNEL_REPO=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 KERNEL_VERSION=v5.1.10
 BUSYBOX_VERSION=1_33_1
 FINDER_APP_DIR=$(realpath $(dirname $0))
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
-toolchain=/home/lizspc/arm-cross-compiler/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc
+toolchain=/home/lizspc/arm-cross-compiler/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
 appdir=/home/lizspc/assignment-1-lizzyhllrn/finder-app
+export PATH="${toolchain}/bin:$PATH"
 
 
 if [ $# -lt 1 ]
@@ -38,7 +39,8 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     git checkout ${KERNEL_VERSION}
 
     # TODO: Add your kernel build steps here
-
+    git apply /home/lizspc/Documents/dtc-multiple-definition.patch
+	
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
@@ -48,6 +50,7 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
 fi
 
 echo "Adding the Image in outdir"
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}/Image
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
@@ -72,15 +75,16 @@ git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
     # TODO:  Configure busybox
-    make distclean
-    make defconfig
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+
 else
     cd busybox
 fi
 
 # TODO: Make and install busybox
-
+echo "about to make and install busybox"
+make distclean
+make defconfig
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 make CONFIG_PREFIX=${OUTDIR}/busybox ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
 echo "Library dependencies"
@@ -88,10 +92,10 @@ ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Add llib/ld-linux-aarch64.so.1ibrary dependencies to rootfs
-cp ${toolchain}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
-cp ${toolchain}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
-cp ${toolchain}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
-cp ${toolchain}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
+cp ${toolchain}/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
+cp ${toolchain}/aarch64-none-linux-gnu/libc/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
+cp ${toolchain}/aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
+cp ${toolchain}/aarch64-none-linux-gnu/libc/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
 
 
 # TODO: Make device nodes
@@ -109,6 +113,11 @@ make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 cp ${appdir}/writer ${OUTDIR}/rootfs/home
 cp ${appdir}/finder.sh ${OUTDIR}/rootfs/home
 cp ${appdir}/finder-test.sh ${OUTDIR}/rootfs/home
+cp ${appdir}/autorun-qemu.sh ${OUTDIR}/rootfs/home
+cp ${appdir}/dependencies.sh ${OUTDIR}/rootfs/home
+cp ${appdir}/start-qemu-app.sh ${OUTDIR}/rootfs/home
+cp ${appdir}/start-qemu-terminal.sh ${OUTDIR}/rootfs/home
+
 
 # TODO: Chown the root directory
 cd ${OUTDIR}/rootfs

@@ -5,7 +5,7 @@
 set -e
 set -u
 
-OUTDIR=/tmp/aeld2
+OUTDIR=/tmp/aeld3
 KERNEL_REPO=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
 KERNEL_VERSION=v5.1.10
 BUSYBOX_VERSION=1_33_1
@@ -77,20 +77,22 @@ git clone git://busybox.net/busybox.git
     # TODO:  Configure busyboxv/lib
     make distclean
     make defconfig
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+    
 
 else
+    echo "skipping busybox config"
     cd busybox
 fi
 
 # TODO: Make and install busybox
 echo "about to make and install busybox"
 
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
 make CONFIG_PREFIX=${OUTDIR}/rootfs ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
 echo "Library dependencies"
-${CROSS_COMPILE}readelf -a ${OUTDIR}/busybox/bin/busybox | grep "program interpreter"
-${CROSS_COMPILE}readelf -a ${OUTDIR}/busybox/bin/busybox | grep "Shared library"
+${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
+${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Add llib/ld-linux-aarch64.so.1ibrary dependencies to rootfs
 cp ${toolchain}/aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib

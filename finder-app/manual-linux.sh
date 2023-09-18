@@ -12,6 +12,9 @@ BUSYBOX_VERSION=1_33_1
 FINDER_APP_DIR=$(realpath $(dirname $0))
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
+toolchain=/home/lizspc/arm-cross-compiler/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/aarch64-none-linux-gnu/libc
+appdir=/home/lizspc/assignment-1-lizzyhllrn/finder-app
+
 
 if [ $# -lt 1 ]
 then
@@ -84,15 +87,34 @@ echo "Library dependencies"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
-# TODO: Add library dependencies to rootfs
+# TODO: Add llib/ld-linux-aarch64.so.1ibrary dependencies to rootfs
+cp ${toolchain}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
+cp ${toolchain}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
+cp ${toolchain}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
+cp ${toolchain}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
+
 
 # TODO: Make device nodes
+sudo mknod -m 666 ${OUTDIR}/rootfs/dev/null c 1 3
+sudo mknod -m 600 ${OUTDIR}/rootfs/dev/console c 5 1
 
 # TODO: Clean and build the writer utility
+cd ${appdir}
+make clean
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+
 
 # TODO: Copy the finder related scripts and executables to the /home directory
 # on the target rootfs
+cp ${appdir}/writer ${OUTDIR}/rootfs/home
+cp ${appdir}/finder.sh ${OUTDIR}/rootfs/home
+cp ${appdir}/finder-test.sh ${OUTDIR}/rootfs/home
 
 # TODO: Chown the root directory
+cd ${OUTDIR}/rootfs
+sudo chown -R root:root *
 
 # TODO: Create initramfs.cpio.gz
+find . | cpio -H newc -ov --owner root:root > ${OUTDIR}/initramfs.cpio
+cd ${OUTDIR}
+gzip -f initramfs.cpio

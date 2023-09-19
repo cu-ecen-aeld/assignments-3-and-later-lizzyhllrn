@@ -13,7 +13,7 @@ FINDER_APP_DIR=$(realpath $(dirname $0))
 ARCH=arm64
 CROSS_COMPILE=aarch64-none-linux-gnu-
 toolchain=/home/lizspc/arm-cross-compiler/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu
-appdir=/home/lizspc/assignment-1-lizzyhllrn/finder-app
+appdir=$(realpath $(dirname $0))
 export PATH="${toolchain}/bin:$PATH"
 
 

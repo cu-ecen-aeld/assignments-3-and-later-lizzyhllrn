@@ -62,7 +62,7 @@ do
 	${SCRIPT_DIR}/writer "$WRITEDIR/${username}$i.txt" "$WRITESTR" #changed to use new writer
 done
 
-OUTPUTSTRING=$(${SCRIPT_DIR}/finder.sh "$WRITEDIR" "$WRITESTR")
+OUTPUTSTRING=$(finder.sh "$WRITEDIR" "$WRITESTR")
 echo "${OUTPUTSTRING}" > /tmp/assingment-4-result.txt
 
 # remove temporary directories

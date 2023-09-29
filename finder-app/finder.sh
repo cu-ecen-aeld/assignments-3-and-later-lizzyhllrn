@@ -1,4 +1,5 @@
 #!/bin/bash
+#new comment
 filesdir=$1
 searchstr=$2
 if [ -n "$filesdir" ] && [ -n "$searchstr" ]

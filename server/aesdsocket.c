@@ -8,9 +8,32 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
+#include <errno.h>
+
+int sock_fd, client_fd;
+
+static void signal_handler (int signal_number) {
+  syslog(LOG_INFO, "Caught signal, exiting");
+  remove("/var/tmp/aesdsocketdata");
+  close(sock_fd);
+  close(client_fd);
+}
 
 
 int main(int argc, char *argv[]) {
+  
+  //set up the signal handling
+  struct sigaction new_action;
+  memset(&new_action, 0, sizeof(struct sigaction));
+  new_action.sa_handler=signal_handler;
+  if (sigaction(SIGTERM, &new_action, NULL) != 0) {
+    fprintf(stderr, "Error %d registering for SIGTERM", errno);
+  } 
+  if (sigaction(SIGINT, &new_action, NULL) != 0) {
+    fprintf(stderr, "Error %d registering for SIGINT", errno);
+  }
+  
   
   int status;
   struct addrinfo hints;
@@ -28,7 +51,7 @@ int main(int argc, char *argv[]) {
   }
  
   //open streaming socket bound to port 9000 (specified in getaddrinfo) 
-  int sock_fd = socket(servinfo->ai_family, servinfo->ai_socktype, 0);
+  sock_fd = socket(servinfo->ai_family, servinfo->ai_socktype, 0);
   if (sock_fd == -1)
   {
     fprintf(stderr, "socket error:");
@@ -52,7 +75,7 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     
-    int client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
+    client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
     if (client_fd == -1) {
       fprintf(stderr, "accept error:");
       return -1;
@@ -93,15 +116,13 @@ int main(int argc, char *argv[]) {
         }
       
   }
-
-
-  
+  fclose(fptr); 
   
   free(buffer);
   close(client_fd);
   syslog(LOG_INFO, "Closed connection from %s", client_ip);
   }
-  fclose(fptr);
+  
   remove("/var/tmp/aesdsocketdata");
   close(sock_fd);
   freeaddrinfo(servinfo);

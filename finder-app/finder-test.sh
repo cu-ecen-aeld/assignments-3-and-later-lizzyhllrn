@@ -13,8 +13,8 @@ set -u
 NUMFILES=10
 WRITESTR=AELD_IS_FUN
 WRITEDIR=/tmp/aeld-data
-username=$(cat ${SCRIPT_DIR}/conf/username.txt)
-some giberish
+username=$(cat ${SCRIPT_DIR}/..//conf/username.txt)
+
 if [ $# -lt 3 ]
 then
 	echo "Using default value ${WRITESTR} for string to write"

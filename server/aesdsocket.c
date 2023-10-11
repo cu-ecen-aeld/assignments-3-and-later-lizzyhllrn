@@ -10,6 +10,7 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdbool.h>
 
 int sock_fd, client_fd;
 
@@ -23,6 +24,14 @@ static void signal_handler (int signal_number) {
 
 
 int main(int argc, char *argv[]) {
+  
+  //catch daemon flag(s)
+  bool isDaemon = false;
+  if (argc > 1 && strcmp(argv[1], "-d") == 0)
+  {
+    printf("it's a Daemon\n");
+    isDaemon = true;
+  }
   
   //set up the signal handling
   struct sigaction new_action;
@@ -63,6 +72,24 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "bind error: %s\n", gai_strerror(status));
     return -1;
   }  
+  
+  /// handle the Daemon flag
+  if (isDaemon) {
+    pid_t pid = fork();
+    if (pid < 0) {
+      fprintf(stderr, "couldn't fork");
+    }
+    if (pid > 0) 
+    { //we're in the parent so exit
+      exit(0);
+    }
+    // if in child, create new SID
+    setsid();
+    chdir("/");
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
+  }
 
   // beginning listening on socket
   if ((status = listen(sock_fd, 1)) != 0)
@@ -132,13 +159,12 @@ int main(int argc, char *argv[]) {
     size_t len = 0;
     ssize_t read_size = 0;
     
-          //read file and send back
+    //read file and send back
     while ((read_size = getline(&line, &len, fptr))  !=-1) {
             printf("sending something\n");
             send(client_fd, line, read_size, 0);
     }
     free(line);
-    
     fclose(fptr); 
   
   free(buffer);

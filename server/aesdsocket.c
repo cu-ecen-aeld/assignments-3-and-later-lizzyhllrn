@@ -16,8 +16,9 @@ int sock_fd, client_fd;
 static void signal_handler (int signal_number) {
   syslog(LOG_INFO, "Caught signal, exiting");
   remove("/var/tmp/aesdsocketdata");
-  close(sock_fd);
-  close(client_fd);
+  shutdown(sock_fd, SHUT_RDWR);
+  shutdown(client_fd, SHUT_RDWR);
+
 }
 
 
@@ -68,10 +69,14 @@ int main(int argc, char *argv[]) {
   {
     fprintf(stderr, "listen error: %s\n", gai_strerror(status));
     return -1;
-  }  
+  } 
+  freeaddrinfo(servinfo);
 
+
+///////////////////////////// connection is set up, beginning main loop
   //continuously try to accept connections
   while (1) {
+    ///// accepting client
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     
@@ -87,45 +92,63 @@ int main(int argc, char *argv[]) {
      printf("Accepted connection from %s", client_ip);
     syslog(LOG_INFO, "Accepted connection from %s", client_ip);
     
+    /////// opening file to write to
     FILE *fptr;
-    fptr = fopen("/var/tmp/aesdsocketdata", "w");
-
+    fptr = fopen("/var/tmp/aesdsocketdata", "a+");
+    //////// setting up buffer
     size_t buffer_size = 512;
     ssize_t recv_size;
     char* buffer = (char *)malloc(buffer_size * sizeof(char));
     memset(buffer, 0, buffer_size * sizeof(char));
-    // receive data packet and write until to file until newline received
+    
+    ///// loop while we are receiving data    
     while ( (recv_size = recv(client_fd, buffer, buffer_size, 0)) > 0)
     {
         if (recv_size == -1) {
           fprintf(stderr, "recv error");
         } else {
+          // write received data to file
           fwrite(buffer, 1, recv_size, fptr);
         }
         
         if (buffer[recv_size-1]=='\n') //end of packet, send it back
-        {
-          fseek(fptr, 0, SEEK_SET);
-          char* line = NULL;
-          size_t len = 0;
-          ssize_t read = 0;
-          while ((read=getline(&line, &len, fptr)) != -1) {
-            send(client_fd, line, read, 0);
-          }
-          free(line);
+        { 
+          //break from main receving loop and send back?"
+          break;
+          // open the output data file as read only
+          //FILE *fptr_read;
+          //fptr_read = fopen("/var/tmp/aesdsocketdata", "r");
+          
+          //fseek(fptr, 0, SEEK_SET);
+
+        //fclose(fptr_read);
+        //move file pointer back
+        //fseek(fptr, 0, SEEK_END);
+
         }
-      
-  }
-  fclose(fptr); 
+    }
+    rewind(fptr);
+    char* line = NULL;
+    size_t len = 0;
+    ssize_t read_size = 0;
+    
+          //read file and send back
+    while ((read_size = getline(&line, &len, fptr))  !=-1) {
+            printf("sending something\n");
+            send(client_fd, line, read_size, 0);
+    }
+    free(line);
+    
+    fclose(fptr); 
   
   free(buffer);
   close(client_fd);
   syslog(LOG_INFO, "Closed connection from %s", client_ip);
   }
   
-  remove("/var/tmp/aesdsocketdata");
+  //remove("/var/tmp/aesdsocketdata");
   close(sock_fd);
-  freeaddrinfo(servinfo);
+  
   
   return 0;
 

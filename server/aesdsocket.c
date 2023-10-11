@@ -66,7 +66,15 @@ int main(int argc, char *argv[]) {
   {
     fprintf(stderr, "socket error:");
     return -1;
-  } //bind socket      
+  } 
+    //set reuseable socket
+  int option = 1;
+  if ((status = setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(int))) != 0) {
+    fprintf(stderr, "options error: %s\n", gai_strerror(status));
+    return -1;
+  } 
+  
+  //bind socket      
   if ((status = bind(sock_fd, servinfo->ai_addr , servinfo->ai_addrlen)) != 0)
   {
     fprintf(stderr, "bind error: %s\n", gai_strerror(status));

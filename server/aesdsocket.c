@@ -143,6 +143,7 @@ int main(int argc, char *argv[]) {
           fprintf(stderr, "recv error");
         } else {
           // write received data to file
+          printf("recieved and wrote some data\n");
           fwrite(buffer, 1, recv_size, fptr);
         }
         
@@ -150,15 +151,7 @@ int main(int argc, char *argv[]) {
         { 
           //break from main receving loop and send back?"
           break;
-          // open the output data file as read only
-          //FILE *fptr_read;
-          //fptr_read = fopen("/var/tmp/aesdsocketdata", "r");
-          
-          //fseek(fptr, 0, SEEK_SET);
 
-        //fclose(fptr_read);
-        //move file pointer back
-        //fseek(fptr, 0, SEEK_END);
 
         }
     }

@@ -1,3 +1,4 @@
+CROSS_COMPILE ?=
 SRC := aesdsocket.c
 TARGET = aesdsocket
 OBJS := $(SRC:.c=.o)

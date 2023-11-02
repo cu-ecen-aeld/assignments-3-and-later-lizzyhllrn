@@ -11,8 +11,26 @@
 #include <signal.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <sys/queue.h>
+#include <pthread.h>
 
 int sock_fd, client_fd;
+
+//A6-1 additions
+// SLIST.
+typedef struct slist_data_s slist_data_t;
+struct slist_data_s {
+    bool isComplete;
+    pthread_t threadId;
+    pthread_mutex_t *pMutex;
+    struct sockaddr_in client_addr;
+    SLIST_ENTRY(slist_data_s) entries;
+};
+
+pthread_mutex_t lock;
+
+void* data_handler(void *thread_param);
+
 
 static void signal_handler (int signal_number) {
   syslog(LOG_INFO, "Caught signal, exiting");
@@ -27,6 +45,7 @@ int main(int argc, char *argv[]) {
   
   //catch daemon flag(s)
   bool isDaemon = false;
+  pthread_mutex_init(&lock, NULL);
   if (argc > 1 && strcmp(argv[1], "-d") == 0)
   {
     printf("it's a Daemon\n");
@@ -106,6 +125,11 @@ int main(int argc, char *argv[]) {
     return -1;
   } 
   freeaddrinfo(servinfo);
+      
+    //initialize s lsit
+    slist_data_t *datap=NULL;
+    SLIST_HEAD(slisthead, slist_data_s) head;
+    SLIST_INIT(&head);
 
 
 ///////////////////////////// connection is set up, beginning main loop
@@ -114,6 +138,7 @@ int main(int argc, char *argv[]) {
     ///// accepting client
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
+    void * threadRetVal = NULL;
     
     client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
     if (client_fd == -1) {
@@ -121,13 +146,57 @@ int main(int argc, char *argv[]) {
       return -1;
     }  
     
+    //start 6-1 linked list of threads for each accept
+    //track thread ids
+    //TODO create thread
+    // for each thread in list is complete flag set, if yes then join
+      datap = malloc(sizeof(slist_data_t));
+      datap->isComplete = false;
+      datap->pMutex = &lock;
+      datap->client_addr = client_addr;
+      
+      if (pthread_create(&(datap->threadId), NULL, data_handler, &datap)==-1)
+      {
+        fprintf(stderr, "error creating thread\n");
+        free(datap);
+        return -1;
+      }
+      
+      SLIST_INSERT_HEAD(&head, datap, entries);
+      datap = NULL;
+      
+      SLIST_FOREACH(datap, &head, entries)
+      {
+        if (datap->isComplete)
+        {
+          if (pthread_join(datap->threadId, &threadRetVal)==-1)
+          {
+              fprintf(stderr, "error joining thread\n");
+              return -1;
+          }
+          free(datap);
+        }
+      
+      }
+      
+  }
+  
+  return 0;
+}
+    
+    
+void* data_handler(void *thread_param)
+{
+  slist_data_t *thread_data= (slist_data_t*)thread_param;
     // log IP of client if successful
     char client_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &(thread_data->client_addr.sin_addr), client_ip, INET_ADDRSTRLEN);
      printf("Accepted connection from %s", client_ip);
     syslog(LOG_INFO, "Accepted connection from %s", client_ip);
     
     /////// opening file to write to
+    //TODO mutex for aesdsocketdata"
+    
     FILE *fptr;
     fptr = fopen("/var/tmp/aesdsocketdata", "a+");
     //////// setting up buffer
@@ -136,7 +205,12 @@ int main(int argc, char *argv[]) {
     char* buffer = (char *)malloc(buffer_size * sizeof(char));
     memset(buffer, 0, buffer_size * sizeof(char));
     
-    ///// loop while we are receiving data    
+    ///// loop while we are receiving data, lock file while handling
+    if (pthread_mutex_lock(thread_data->pMutex)==-1)
+    {
+        fprintf(stderr, "error with mutex lock\n");
+        return NULL;
+    }
     while ( (recv_size = recv(client_fd, buffer, buffer_size, 0)) > 0)
     {
         if (recv_size == -1) {
@@ -155,28 +229,39 @@ int main(int argc, char *argv[]) {
 
         }
     }
+    if (pthread_mutex_unlock(thread_data->pMutex)==-1)
+    {
+        fprintf(stderr, "error with mutex lock\n");
+        return NULL;
+    }
     rewind(fptr);
     char* line = NULL;
     size_t len = 0;
     ssize_t read_size = 0;
     
     //read file and send back
+    
+    if (pthread_mutex_lock(thread_data->pMutex)==-1)
+    {
+        fprintf(stderr, "error with mutex lock\n");
+        return NULL;
+    }
     while ((read_size = getline(&line, &len, fptr))  !=-1) {
             printf("sending something\n");
             send(client_fd, line, read_size, 0);
     }
+    if (pthread_mutex_unlock(thread_data->pMutex)==-1)
+    {
+        fprintf(stderr, "error with mutex lock\n");
+        return NULL;
+    }
     free(line);
     fclose(fptr); 
+    thread_data->isComplete=true;
   
   free(buffer);
   close(client_fd);
   syslog(LOG_INFO, "Closed connection from %s", client_ip);
-  }
-  
-  //remove("/var/tmp/aesdsocketdata");
   close(sock_fd);
-  
-  
-  return 0;
 
 }

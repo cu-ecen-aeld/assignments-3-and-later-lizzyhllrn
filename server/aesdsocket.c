@@ -5,12 +5,12 @@
 bool isDaemon;
 
 //Socket variables
-int sock_fd, client_fd;
+int sock_fd;//, client_fd;
 
 //Thread variables
 pthread_mutex_t lock;
-slist_data_t *datap;
-thread_data_t *time_thread_data;
+slist_data_t *datap=NULL;
+thread_data_t time_thread_data;
 SLIST_HEAD(slisthead, slist_data_s) head;
 
 //File variables
@@ -19,7 +19,6 @@ FILE *fptr;
 int main(int argc, char *argv[]) {
   int status;
   isDaemon=false;
-  time_thread_data = malloc(sizeof(thread_data_t));
   struct addrinfo hints;
   struct addrinfo *servinfo;
   struct sigaction new_action;
@@ -60,12 +59,14 @@ int main(int argc, char *argv[]) {
   if (sock_fd == -1)
   {
     fprintf(stderr, "socket error:");
+    freeaddrinfo(servinfo);
     return -1;
   } 
     //set reuseable socket
   int option = 1;
   if ((status = setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(int))) != 0) {
     fprintf(stderr, "options error: %s\n", gai_strerror(status));
+    freeaddrinfo(servinfo);
     return -1;
   } 
   
@@ -73,8 +74,10 @@ int main(int argc, char *argv[]) {
   if ((status = bind(sock_fd, servinfo->ai_addr , servinfo->ai_addrlen)) != 0)
   {
     fprintf(stderr, "bind error: %s\n", gai_strerror(status));
+    freeaddrinfo(servinfo);
     return -1;
   }  
+  freeaddrinfo(servinfo);
   
   /// handle the Daemon flag
   if (isDaemon) {
@@ -90,7 +93,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "listen error: %s\n", gai_strerror(status));
     return -1;
   } 
-  freeaddrinfo(servinfo);
+  
       
   //initialize s lsit
   SLIST_INIT(&head);
@@ -99,8 +102,9 @@ int main(int argc, char *argv[]) {
   fptr = fopen("/var/tmp/aesdsocketdata", "a+");
   
   //begin timestamping, create timestamping thread
-  time_thread_data->pMutex = &lock;
-  if (pthread_create(&(time_thread_data->threadId), NULL, timestamp, &time_thread_data)==-1)
+  //time_thread_data = malloc(sizeof(thread_data_t));
+  time_thread_data.pMutex = &lock;
+  if (pthread_create(&(time_thread_data.threadId), NULL, timestamp, &time_thread_data)==-1)
   {
     fprintf(stderr, "error creating thread\n");
     return -1;
@@ -114,9 +118,11 @@ void * thread_return = NULL;
   printf("set up successful, will listen for connections\n");
 while (1) {
   ///// accepting client    
-  client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
-  if (client_fd == -1) {
+  datap = malloc(sizeof(slist_data_t));
+  datap->client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
+  if (datap->client_fd == -1) {
     fprintf(stderr, "accept error:");
+    free(datap);
     return -1;
   }  
   printf("accepted a connection\n");
@@ -124,7 +130,7 @@ while (1) {
   //start 6-1 linked list of threads for each accept
   //track thread ids
   // for each thread in list is complete flag set, if yes then join
-    datap = malloc(sizeof(slist_data_t));
+    
     datap->isComplete = false;
     datap->pMutex = &lock;
     datap->client_addr = client_addr;
@@ -147,6 +153,7 @@ while (1) {
         if (pthread_join(datap->threadId, &thread_return)==-1)
         {
             fprintf(stderr, "error joining thread\n");
+            free(datap);
             return -1;
         }
         free(datap);
@@ -155,7 +162,6 @@ while (1) {
     }
     
 }
-  
   
   graceful_shutdown();
   
@@ -186,7 +192,7 @@ void* data_handler(void *thread_param)
         free(buffer);
         return NULL;
     }
-    while ( (recv_size = recv(client_fd, buffer, buffer_size, 0)) > 0)
+    while ( (recv_size = recv(thread_data->client_fd, buffer, buffer_size, 0)) > 0)
     {
         if (recv_size == -1) {
           fprintf(stderr, "recv error");
@@ -223,7 +229,7 @@ void* data_handler(void *thread_param)
     }
     while ((read_size = getline(&line, &len, fptr))  !=-1) {
             printf("sending something\n");
-            send(client_fd, line, read_size, 0);
+            send(thread_data->client_fd, line, read_size, 0);
     }
     if (pthread_mutex_unlock(thread_data->pMutex)==-1)
     {
@@ -236,7 +242,7 @@ void* data_handler(void *thread_param)
     thread_data->isComplete=true;
   
   free(buffer);
-  close(client_fd);
+  close(thread_data->client_fd);
   syslog(LOG_INFO, "Closed connection from %s", client_ip);
 }
 
@@ -301,23 +307,23 @@ void* timestamp(void * thread_param){
 void graceful_shutdown(void) {
   //join threads
   void * thread_return = NULL;
-  if (pthread_join(time_thread_data->threadId, &thread_return)==-1)
+  if (pthread_join(time_thread_data.threadId, &thread_return)==-1)
   {
     fprintf(stderr, "error joining timestamp thread\n");
   }
-  free(time_thread_data);
+  //free(time_thread_data);
   SLIST_FOREACH(datap, &head, entries)
   {
+    close(datap->client_fd);
     if (pthread_join(datap->threadId, &thread_return)==-1)
     {
       fprintf(stderr, "error joining thread\n");
     }
     free(datap);
   }
-
   //cleanup sockets
   close(sock_fd);
-  close(client_fd);
+ // close(client_fd);
 
   //cleanup files
   fclose(fptr); 

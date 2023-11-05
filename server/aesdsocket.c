@@ -2,18 +2,19 @@
 
 //Global variables
 bool isDaemon;
+bool isError=false;
 
 //Socket variables
-int sock_fd, client_fd;
+//int sock_fd, client_fd;
 
 //Thread variables
-pthread_mutex_t lock;
-thread_data_t time_thread_data;
-SLIST_HEAD(slisthead, slist_data_s) head;
-slist_data_t * slist_data_s =NULL;
+//pthread_mutex_t lock;
+//thread_data_t time_thread_data;
+//SLIST_HEAD(slisthead, slist_data_s) head;
+Node* head =NULL;
 
 //File variables
-FILE *fptr;
+FILE *file;
 
 int main(int argc, char *argv[]) {
   int status;
@@ -23,14 +24,7 @@ int main(int argc, char *argv[]) {
   struct sigaction new_action;
   int ret;
   
-  ret = pthread_mutex_init(&lock, NULL);
-  if(ret !=0){
-    fprintf(stderr, "mutex init failed\n");
-    printf("mutex init failed\n");
-    return -1;
-  }
 
-  
   //Catch daemon flag(s)
   if (argc > 1 && strcmp(argv[1], "-d") == 0)
   {
@@ -48,256 +42,119 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error %d registering for SIGINT", errno);
   }
 
+int server_fd, client_fd;
+    struct sockaddr_in server_addr, client_addr;
+    socklen_t client_addr_len = sizeof(client_addr);
 
-  
-  //set up sockaddr using getaddrinfo
-  memset(&hints, 0, sizeof(hints)); //make sure struct is empty
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_PASSIVE;
-  hints.ai_protocol=0;
-  if ((status = getaddrinfo(NULL, "9000", &hints, &servinfo)) != 0)
-  {
-    fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-
-    return -1;
-  }
-
-  if (servinfo == NULL) {
-    printf("getaddrinfo memory allocation failed\n");
-    return -1;
-  }
-   
-  //open streaming socket bound to port 9000 (specified in getaddrinfo) 
-  sock_fd = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-  if (sock_fd == -1)
-  {
-    fprintf(stderr, "socket error:");
-    freeaddrinfo(servinfo);
-    return -1;
-  } 
-  printf("opened socket successfully\n");
-    //set reuseable socket
-
-  int option = 1;
-  if ((status = setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(int))) != 0) {
-    fprintf(stderr, "options error: %s\n", gai_strerror(status));
-    freeaddrinfo(servinfo);
-    return -1;
-  } 
-  printf("set socket options\n");
-  
-  //bind socket      
-  if ((status = bind(sock_fd, servinfo->ai_addr , servinfo->ai_addrlen)) != 0)
-  {
-    fprintf(stderr, "bind error: %s\n", gai_strerror(status));
-    freeaddrinfo(servinfo);
-    return -1;
-  }  
-  freeaddrinfo(servinfo);
-  
-  /// handle the Daemon flag
-  if (isDaemon) {
-    if(make_Daemon()==-1)
-    {
-      return -1;
+    // Create the server socket
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+        perror("socket");
+        return 1;
     }
-  }
 
-  // beginning listening on socket
-  if ((status = listen(sock_fd, 1)) != 0)
-  {
-    fprintf(stderr, "listen error: %s\n", gai_strerror(status));
-    return -1;
-  } 
-  printf("listening...\n");
-  
-      
-  //initialize s lsit
-  SLIST_INIT(&head);
+    // Bind the server socket to a port
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(9000);
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 
-
-  
-  //begin timestamping, create timestamping thread
-  //time_thread_data = malloc(sizeof(thread_data_t));
-  time_thread_data.pMutex = &lock;
-  /*if (pthread_create(&(time_thread_data.threadId), NULL, timestamp, &time_thread_data)==-1)
-  {
-    fprintf(stderr, "error creating thread\n");
-    return -1;
-  }
-  */
-  
-struct sockaddr_in client_addr;
-socklen_t client_addr_len = sizeof(client_addr);
-void * thread_return = NULL;
-
-slist_data_t *datap;
-
-  //continuously try to accept connections
-  printf("set up successful, will listen for connections\n");
-while (1) {
-  ///// accepting client    
-  
-  client_fd = accept(sock_fd, (struct sockaddr*)&client_addr , &client_addr_len);
-  if (client_fd == -1) {
-    fprintf(stderr, "accept error:");
-    //free(datap);
-    return -1;
-  }  
-  printf("accepted a connection\n");
-  
-
-  //start 6-1 linked list of threads for each accept
-  //track thread ids
-  // for each thread in list is complete flag set, if yes then join
-    datap = malloc(sizeof(slist_data_t));
-    datap->isComplete = false;
-    datap->pMutex = &lock;
-    datap->client_fd = client_fd;
-    datap->client_addr = client_addr;
-    
-    if (pthread_create(&(datap->threadId), NULL, data_handler, &datap)==-1)
-    {
-      fprintf(stderr, "error creating thread\n");
-      free(datap);
-      return -1;
+    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) == -1) {
+        perror("bind");
+        close(server_fd);
+        return 1;
     }
-    printf("created a thread\n");
-    
-    SLIST_INSERT_HEAD(&head, datap, entries);
-    datap = NULL;
-    
-    SLIST_FOREACH(datap, &head, entries)
-    {
-      if (datap->isComplete)
-      {
-        if (pthread_join(datap->threadId, &thread_return)==-1)
-        {
-            fprintf(stderr, "error joining thread\n");
-            free(datap);
-            return -1;
+
+    // Listen for incoming connections
+    if (listen(server_fd, 5) == -1) {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
+
+    printf("Server is listening on port 9000\n");
+
+    // Create a thread for timestamping
+    pthread_t timestamp_thread;
+    if (pthread_create(&timestamp_thread, NULL, timestamp, NULL) != 0) {
+        perror("pthread_create for timestamp");
+        return 1;
+    }
+
+    while (!isError) {
+        // Accept a new client connection
+        if ((client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_addr_len)) == -1) {
+            perror("accept");
+            continue;
         }
-        free(datap);
-      }
-    
-    }
-    
-}
-  
-  do_shutdown();
-  
-  return 0;
-}
-    
-    
-void* data_handler(void *thread_param)
-{
-   printf("beginning data handler routine\n");
-  slist_data_t *thread_data= (slist_data_t*)thread_param;
-    // log IP of client if successful
-    char client_ip[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &(thread_data->client_addr.sin_family), client_ip, INET_ADDRSTRLEN);
-    printf("Accepted connection from %s\n", client_ip);
-    syslog(LOG_INFO, "Accepted connection from %s", client_ip);
-    
-    //////// setting up buffer
-    size_t buffer_size = 512;
-    ssize_t recv_size;
-    char* buffer = (char *)malloc(buffer_size * sizeof(char));
-    memset(buffer, 0, buffer_size * sizeof(char));
 
-      //open file to write to
-    fptr = fopen("/var/tmp/aesdsocketdata", "a+");
-    
-    ///// loop while we are receiving data, lock file while handling
-    if (pthread_mutex_lock(thread_data->pMutex)==-1)
-    {
-        fprintf(stderr, "error with mutex lock\n");
-        free(buffer);
-        close(thread_data->client_fd);
-        return NULL;
-    }
-    printf("locked the mutex to write\n");
+        // Create a thread to handle the client
+        thread_data_t* data = (thread_data_t*)malloc(sizeof(thread_data_t));
+        data->client_fd = client_fd;
+        data->isComplete = 0;
 
-   /* 
-    recv_size = recv(thread_data->client_fd, buffer, buffer_size, 0);
-    if (recv_size == -1) {
-     printf("error with recv: %s\n", strerror(errno));
-      fprintf(stderr, "recv error");
-    }
-
-    printf("recieved %ld bytes", recv_size);
-    while ( (recv_size  > 0))
-    {
-        printf("in recieiving while function\n");
-        if (recv_size == -1) {
-          printf("error with recv");
-          fprintf(stderr, "recv error");
+        if (pthread_create(&(data->threadId), NULL, client_handler, data) == 0) {
+            insertNode(data);
         } else {
-          // write received data to file
-          printf("recieved and wrote some data\n");
-          fwrite(buffer, 1, recv_size, fptr);
+            perror("pthread_create");
+            free(data);
         }
-        
-        if (buffer[recv_size-1]=='\n') //end of packet, send it back
-        { 
-          //break from main receving loop and send back?"
-          printf("reached end of packet, breaking main loop\n");
-          break;
+
+        // Check for and remove completed threads
+        removeCompletedThreads();
+    }
+
+    // Close the server socket (not reached in this example)
+    remove("/var/tmp/aesdsocketdata)");
+    close(server_fd);
+
+    return 0;
+}
+    
+    
+void* client_handler(void *arg)
+{
+   thread_data_t* thread_data = (thread_data_t*)arg;
+    
+    // Handle the client connection, e.g., read and write data
+    char buffer[1024];
+    ssize_t bytes_received;
+
+    pthread_mutex_lock(&fileMutex); // Lock for file access
+    file = fopen(DATA_FILE, "a+");
+    while ((bytes_received = recv(thread_data->client_fd, buffer, sizeof(buffer), 0)) > 0) {
+            fwrite(buffer, 1, bytes_received, file);
+
+        if (buffer[bytes_received-1]=='\n') {
+            break;
         }
     }
-    */
-    if (pthread_mutex_unlock(thread_data->pMutex)==-1)
-    {
-        fprintf(stderr, "error with mutex lock\n");
-        close(thread_data->client_fd);
-        free(buffer);
-        return NULL;
-    }
-    printf("unlocked for writing\n");
-    rewind(fptr);
+    fclose(file);
+    pthread_mutex_unlock(&fileMutex); // Unlock file access
+
     char* line = NULL;
     size_t len = 0;
     ssize_t read_size = 0;
-    
-    //read file and send back
-    
-    if (pthread_mutex_lock(thread_data->pMutex)==-1)
-    {
-        fprintf(stderr, "error with mutex lock\n");
-        free(buffer);
-        close(thread_data->client_fd);
-        return NULL;
-    } printf("locked for reading\n");
-    while ((read_size = getline(&line, &len, fptr))  !=-1) {
-            printf("sending something\n");
+
+    pthread_mutex_lock(&fileMutex); // Lock for file access
+    file = fopen(DATA_FILE, "a+");
+    while ((read_size = getline(&line, &len, file))  !=-1) {
             send(thread_data->client_fd, line, read_size, 0);
     }
-    if (pthread_mutex_unlock(thread_data->pMutex)==-1)
-    {
-        fprintf(stderr, "error with mutex lock\n");
-        free(buffer);
-        close(thread_data->client_fd);
-        return NULL;
-    } printf("unlocked for reading\n");
-    free(line);
-    
-  thread_data->isComplete=true;
-  free(buffer);
-  //close(thread_data->client_fd);
-  if (shutdown(thread_data->client_fd, SHUT_RDWR) ==-1){
-    printf("error with shutdown: %s\n", strerror(errno));
-  }
-  syslog(LOG_INFO, "Closed connection from %s", client_ip);
-  printf("made it to end of thread");
-  return NULL;
+    fclose(file);
+    pthread_mutex_unlock(&fileMutex); // Unlock file access
 
+    // Mark the thread as complete
+    thread_data->isComplete = 1;
+
+    close(thread_data->client_fd);
+    pthread_exit(NULL);
 }
 
 static void signal_handler (int signal_number) {
   syslog(LOG_INFO, "Caught signal, exiting");
-  do_shutdown();
+  isError=true;
+  removeCompletedThreads();
+      remove("/var/tmp/aesdsocketdata)");
+  //do_shutdown();
 }
 
 int make_Daemon(void) {
@@ -320,39 +177,31 @@ int make_Daemon(void) {
 }
 
 
-void* timestamp(void * thread_param){
-    time_t rawtime;
-    struct tm *timeinfo;
-    char timestamp[30];
-    thread_data_t *time_t_data = (thread_data_t *)thread_param;
-  
-    while(1) {
-      //get updated time
-      time(&rawtime);
-      timeinfo = localtime(&rawtime);
-      strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
+void* timestamp(void * arg){
+    while (1) {
+        sleep(10); // Wait for 10 seconds
 
-      if (pthread_mutex_lock(time_t_data->pMutex)==-1)
-      {
-          fprintf(stderr, "error with mutex lock (in time func)\n");
-          return NULL;
-      }
-      
-      
-      fprintf(fptr, "timestamp: %s\n", timestamp);
-      
-      if (pthread_mutex_unlock(time_t_data->pMutex)==-1)
-      {
-          fprintf(stderr, "error with mutex unlock (in time func)\n");
-          return NULL;
-      }
-      sleep(10);
-    
+        pthread_mutex_lock(&fileMutex); // Lock for file access
+        FILE* file = fopen(DATA_FILE, "a+");
+        if (file != NULL) {
+            time_t rawtime;
+            struct tm* timeinfo;
+
+            time(&rawtime);
+            timeinfo = localtime(&rawtime);
+
+            char timestamp[30];
+            strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
+
+            fprintf(file, "timestamp: %s\n", timestamp);
+            fclose(file);
+        }
+        pthread_mutex_unlock(&fileMutex); // Unlock file access
     }
-    return NULL;
 
 }
 
+/*
 void do_shutdown(void) {
   //join threads
   slist_data_t *datap;
@@ -379,5 +228,56 @@ void do_shutdown(void) {
   fclose(fptr); 
   remove("/var/tmp/aesdsocketdata");
 }
+*/
 
+void insertNode(thread_data_t* data) {
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->data = data;
+    newNode->next = NULL;
 
+    pthread_mutex_lock(&listMutex);
+
+    if (head == NULL) {
+        head = newNode;
+    } else {
+        Node* current = head;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = newNode;
+    }
+
+    pthread_mutex_unlock(&listMutex);
+}
+
+void removeCompletedThreads() {
+    pthread_mutex_lock(&listMutex);
+
+    Node* current = head;
+    Node* prev = NULL;
+
+    while (current != NULL) {
+        if (current->data->isComplete) {
+            // Join and cleanup the thread
+            pthread_join(current->data->threadId, NULL);
+
+            // Remove the node from the list
+            if (prev == NULL) {
+                head = current->next;
+                free(current->data);
+                free(current);
+                current = head;
+            } else {
+                prev->next = current->next;
+                free(current->data);
+                free(current);
+                current = prev->next;
+            }
+        } else {
+            prev = current;
+            current = current->next;
+        }
+    }
+
+    pthread_mutex_unlock(&listMutex);
+}

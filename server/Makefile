@@ -1,6 +1,6 @@
 CROSS_COMPILE ?=
-SRC := aesdsocket-2.c
-TARGET = aesdsocket-2
+SRC := aesdsocket.c
+TARGET = aesdsocket
 OBJS := $(SRC:.c=.o)
 CC = $(CROSS_COMPILE)gcc
 CFLAGs += -g -Wall -Werror

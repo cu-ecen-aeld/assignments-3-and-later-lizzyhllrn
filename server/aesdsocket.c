@@ -52,6 +52,14 @@ int server_fd, client_fd;
         return 1;
     }
 
+    // Set options for reuseable address
+    int opt = 1;
+    if ((setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int))) == -1) {
+        perror("socket options");
+        return 1;
+    }
+
+
     // Bind the server socket to a port
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(9000);
@@ -146,7 +154,8 @@ void* client_handler(void *arg)
     thread_data->isComplete = 1;
 
     close(thread_data->client_fd);
-    pthread_exit(NULL);
+    //pthread_exit(NULL);
+    return NULL;
 }
 
 static void signal_handler (int signal_number) {

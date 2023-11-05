@@ -4,17 +4,13 @@
 bool isDaemon;
 bool isError=false;
 
-//Socket variables
-//int sock_fd, client_fd;
-
-//Thread variables
-//pthread_mutex_t lock;
-//thread_data_t time_thread_data;
-//SLIST_HEAD(slisthead, slist_data_s) head;
+//Linked list head
 Node* head =NULL;
 
 //File variables
 FILE *file;
+
+int server_fd;
 
 int main(int argc, char *argv[]) {
   int status;
@@ -42,7 +38,7 @@ int main(int argc, char *argv[]) {
     fprintf(stderr, "Error %d registering for SIGINT", errno);
   }
 
-int server_fd, client_fd;
+    int client_fd;
     struct sockaddr_in server_addr, client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
 
@@ -78,7 +74,7 @@ int server_fd, client_fd;
         return 1;
     }
 
-    printf("Server is listening on port 9000\n");
+    printf("Listening on port 9000\n");
 
     // Create a thread for timestamping
     pthread_t timestamp_thread;
@@ -110,9 +106,8 @@ int server_fd, client_fd;
         removeCompletedThreads();
     }
 
-    // Close the server socket (not reached in this example)
-    remove("/var/tmp/aesdsocketdata)");
-    close(server_fd);
+    // Close the server socket 
+    do_shutdown();
 
     return 0;
 }
@@ -154,16 +149,14 @@ void* client_handler(void *arg)
     thread_data->isComplete = 1;
 
     close(thread_data->client_fd);
-    //pthread_exit(NULL);
     return NULL;
 }
 
 static void signal_handler (int signal_number) {
   syslog(LOG_INFO, "Caught signal, exiting");
   isError=true;
-  removeCompletedThreads();
-      remove("/var/tmp/aesdsocketdata)");
-  //do_shutdown();
+  
+  do_shutdown();
 }
 
 int make_Daemon(void) {
@@ -196,10 +189,12 @@ void* timestamp(void * arg){
             time_t rawtime;
             struct tm* timeinfo;
 
+            // Get current time
             time(&rawtime);
             timeinfo = localtime(&rawtime);
 
             char timestamp[30];
+            // Format timesteamp
             strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
 
             fprintf(file, "timestamp: %s\n", timestamp);
@@ -210,34 +205,19 @@ void* timestamp(void * arg){
 
 }
 
-/*
-void do_shutdown(void) {
-  //join threads
-  slist_data_t *datap;
-  void * thread_return = NULL;
-  if (pthread_join(time_thread_data.threadId, &thread_return)==-1)
-  {
-    fprintf(stderr, "error joining timestamp thread\n");
-  }
-  //free(time_thread_data);
-  SLIST_FOREACH(datap, &head, entries)
-  {
-    close(datap->client_fd);
-    if (pthread_join(datap->threadId, &thread_return)==-1)
-    {
-      fprintf(stderr, "error joining thread\n");
-    }
-    free(datap);
-  }
-  //cleanup sockets
-  close(sock_fd);
-  close(client_fd);
 
-  //cleanup files
-  fclose(fptr); 
-  remove("/var/tmp/aesdsocketdata");
+void do_shutdown(void) {
+    //join threads
+    removeCompletedThreads();
+
+    //cleanup sockets
+    close(server_fd);
+
+    //cleanup files
+    fclose(file); 
+    remove("/var/tmp/aesdsocketdata");
 }
-*/
+
 
 void insertNode(thread_data_t* data) {
     Node* newNode = (Node*)malloc(sizeof(Node));

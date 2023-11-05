@@ -30,8 +30,6 @@ typedef struct {
     pthread_mutex_t *pMutex;
 } thread_data_t;
 
-//typedef struct slist_data_s slist_data_t;
-
 typedef struct node {
     thread_data_t* data;
     struct node* next;
@@ -49,4 +47,4 @@ void insertNode(thread_data_t* data);
 void removeCompletedThreads();
 int make_Daemon(void);
 static void signal_handler (int signal_number);
-//void do_shutdown(void);
+void do_shutdown(void);

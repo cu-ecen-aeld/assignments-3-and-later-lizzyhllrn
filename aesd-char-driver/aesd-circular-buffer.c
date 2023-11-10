@@ -41,6 +41,7 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
    {
     if ((current_total_bytes + buffer->entry[current_location].size) > char_offset){//the entry is here
         *entry_offset_byte_rtn = char_offset - current_total_bytes;
+        //returns entry in buffer where offset occurs
         return &buffer->entry[current_location];
 
     }

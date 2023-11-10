@@ -49,7 +49,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 {
     struct aesd_dev *read_dev;
     struct aesd_buffer_entry *current_entry;
-    size_t offset, copy_bytes, uncopied_bytes;
+    size_t offset =0;
+    size_t copy_bytes, uncopied_bytes;
     ssize_t retval = 0;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
@@ -62,8 +63,13 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     //get the entry in the circular buffer at position and offset
     current_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&read_dev->circ_buffer, *f_pos, &offset);
     
+    if (current_entry==NULL) {
+
+        PDEBUG("no entry found for offset");
+        mutex_unlock(&read_dev->lock);
+        return retval;
+    }
     //determine number of bytes remaining to copy
-    offset =0;
     copy_bytes = current_entry->size -offset;
     uncopied_bytes = 0;
 
@@ -86,6 +92,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
     //set reval to be the total bytes copied and update pointer pos
     *f_pos+= retval;
+    
 
     //unlock the device
     mutex_unlock(&read_dev->lock);
@@ -101,6 +108,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     char *write_data; 
     size_t index;
     bool full_packet;
+
+        struct aesd_buffer_entry new_entry;
 
 
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
@@ -163,15 +172,14 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     write_dev->buffer_size += index;
 
     //if a full packet was recieved we add the buffer into an entry
-    if (full_packet) {
-        struct aesd_buffer_entry new_entry;
+    //if (full_packet) {
 
         new_entry.size = write_dev->buffer_size;
         new_entry.buffptr = write_dev->dev_buffer;
 
 
         aesd_circular_buffer_add_entry(&write_dev->circ_buffer, &new_entry);
-    }
+    //}
 
     retval = index;
 

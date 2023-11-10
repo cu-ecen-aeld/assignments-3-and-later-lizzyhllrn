@@ -28,12 +28,10 @@ struct aesd_dev aesd_device;
 
 int aesd_open(struct inode *inode, struct file *filp)
 {
+    struct aesd_dev *new_dev;
     PDEBUG("open");
-    /**
-     * TODO: handle open
-     */
-    struct aesd_dev *new_dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
-    filep->private_data = new_dev;
+    new_dev = container_of(inode->i_cdev, struct aesd_dev, cdev);
+    filp->private_data = new_dev;
     return 0;
 }
 
@@ -49,24 +47,25 @@ int aesd_release(struct inode *inode, struct file *filp)
 ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
+    struct aesd_dev *read_dev;
+    struct aesd_buffer_entry *current_entry;
+    size_t offset, copy_bytes, uncopied_bytes;
     ssize_t retval = 0;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
     //get the device
-    struct aesd_dev *read_dev = filp->private_data;
-
-    size_t offset =0;
-    aesd_buffer_entry *current_entry;
+    read_dev = filp->private_data;
 
     //lock the device
     mutex_lock(&read_dev->lock);
 
     //get the entry in the circular buffer at position and offset
-    current_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&read_dev->circ_buffer, *fpos, &offset);
+    current_entry = aesd_circular_buffer_find_entry_offset_for_fpos(&read_dev->circ_buffer, *f_pos, &offset);
     
     //determine number of bytes remaining to copy
-    size_t copy_bytes = current_entry->size -offset;
-    size_t uncopied_bytes = 0;
+    offset =0;
+    copy_bytes = current_entry->size -offset;
+    uncopied_bytes = 0;
 
     //if copy bytes is less than max, copy all. else copy max (count) 
     if (copy_bytes < count)
@@ -98,15 +97,18 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = -ENOMEM;
+    struct aesd_dev *write_dev;
+    char *write_data; 
+    size_t index;
+    bool full_packet;
+
+
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
-    /**
-     * TODO: handle write
-     */
     //get the device
-    struct aesd_dev *write_dev = filp->private_data;
+    write_dev = filp->private_data;
 
     //allocate memoy for write data
-    char *write_data = kmalloc(count, GFP_KERNEL);
+    write_data = kmalloc(count, GFP_KERNEL);
     //if allocation fails, return current value
     if (!write_data)
     {
@@ -125,8 +127,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     mutex_lock(&write_dev->lock);
 
     //iterate through data to look for newline character
-    size_t index = 0;
-    bool full_packet = false;
+    
+    index = 0;
+    full_packet = false;
     while (index < count)
     {
         if (write_data[index] == '\n')
@@ -220,9 +223,9 @@ int aesd_init_module(void)
     }
     memset(&aesd_device,0,sizeof(struct aesd_dev));
 
-    mutex_init(&aesd_dev.lock);
+    mutex_init(&aesd_device.lock);
     aesd_circular_buffer_init(&aesd_device.circ_buffer);
-    aesd_device.working_entry=NULL;
+    //aesd_device.working_entry=NULL;
 
 
     result = aesd_setup_cdev(&aesd_device);
@@ -240,9 +243,9 @@ void aesd_cleanup_module(void)
 
     cdev_del(&aesd_device.cdev);
 
-    kfree(&aesd_devive.circ_buffer);
+    kfree(&aesd_device.circ_buffer);
 
-    mutex_destroy(&aesd_device.lock)
+    mutex_destroy(&aesd_device.lock);
 
     unregister_chrdev_region(devno, 1);
 }

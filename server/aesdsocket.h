@@ -19,8 +19,6 @@
 #include <time.h>
 #include <netinet/in.h>
 
-#define DATA_FILE "/var/tmp/aesdsocketdata"
-
 //A6-1 additions
 //this structure contains linked list data for each thread that is split off for new connection
 typedef struct {

@@ -106,11 +106,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     ssize_t retval = -ENOMEM;
     struct aesd_dev *write_dev;
     char *write_data; 
-    size_t index;
+    size_t newline_index, this_chunk;
     bool full_packet;
 
     struct aesd_buffer_entry new_entry;
     struct aesd_buffer_entry *last_entry;
+
 
 
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
@@ -119,6 +120,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     //allocate memoy for write data
     write_data = kmalloc(count, GFP_KERNEL);
+
     //if allocation fails, return current value
     if (!write_data)
     {
@@ -138,29 +140,34 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     //iterate through data to look for newline character
     
-    index = 0;
+    newline_index = 0;
     full_packet = false;
-    while (index < count)
+    while (newline_index < count)
     {
-        if (write_data[index] == '\n')
+        if (write_data[newline_index] == '\n')
         {
             full_packet = true;
             break;
         }
-        index++;
+        newline_index++;
     } 
-    index++;
-    //initialize write buffer if not alread
+    if (full_packet) {
+        this_chunk = newline_index+1; //include the newline in the append
+    } else {
+        this_chunk = count; //write all to write buffer
+    }
+    
+    //initialize write buffer if not already
     if(write_dev->buffer_size == 0)
     {
-        write_dev->dev_buffer = kmalloc(count, GFP_KERNEL);
+        write_dev->dev_buffer = kmalloc(this_chunk, GFP_KERNEL);
         if(write_dev->dev_buffer == NULL) {
             kfree(write_data);
             mutex_unlock(&write_dev->lock);
             return retval;
         }
     } else {
-        write_dev->dev_buffer = krealloc(write_dev->dev_buffer, (index + write_dev->buffer_size), GFP_KERNEL);
+        write_dev->dev_buffer = krealloc(write_dev->dev_buffer, (write_dev->buffer_size + this_chunk), GFP_KERNEL);
         if(write_dev->dev_buffer == NULL) {
             kfree(write_data);
             mutex_unlock(&write_dev->lock);
@@ -169,8 +176,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
 
     //copy the indexed data into the device buffer to be written
-    memcpy(write_dev->dev_buffer + write_dev->buffer_size, write_data, index);
-    write_dev->buffer_size += index;
+    memcpy(write_dev->dev_buffer + write_dev->buffer_size, write_data, this_chunk);
+    write_dev->buffer_size += this_chunk;
+    //printf("I copied data for write\n");
 
     //if a full packet was recieved we add the buffer into an entry
     if (full_packet) {
@@ -182,18 +190,19 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         if (write_dev->circ_buffer.full) 
         {
             last_entry = &write_dev->circ_buffer.entry[write_dev->circ_buffer.in_offs];
-            if (last_entry->buffptr){
+            if (last_entry != NULL && last_entry->buffptr != NULL){
                 kfree(last_entry->buffptr);
             }
             last_entry->buffptr=NULL;
             last_entry->size=0;
         }
         aesd_circular_buffer_add_entry(&write_dev->circ_buffer, &new_entry);
-    
-        write_dev->buffer_size=0;
-        }
 
-    retval = index;
+        //kfree(write_dev->dev_buffer);
+        write_dev->buffer_size=0;
+    }
+
+    retval = this_chunk;
 
     if(write_data){
         kfree(write_data);
@@ -206,6 +215,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     return retval;
 }
+
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,
     .read =     aesd_read,

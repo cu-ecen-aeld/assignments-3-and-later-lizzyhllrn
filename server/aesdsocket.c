@@ -1,4 +1,5 @@
 #include "aesdsocket.h"
+#define USE_AESD_CHAR_DEVICE 1;
 
 //Global variables
 bool isDaemon;
@@ -9,8 +10,17 @@ Node* head =NULL;
 
 //File variables
 FILE *file;
+#ifdef USE_AESD_CHAR_DEVICE
+    #define DATA_FILE "/dev/aesdchar"
+
+#else
+    #define DATA_FILE "/var/tmp/aesdsocketdata"
+#endif
 
 int server_fd;
+
+
+
 
 int main(int argc, char *argv[]) {
   int status;
@@ -78,10 +88,14 @@ int main(int argc, char *argv[]) {
 
     // Create a thread for timestamping
     pthread_t timestamp_thread;
+    
+    #ifndef USE_AESD_CHAR_DEVICE
     if (pthread_create(&timestamp_thread, NULL, timestamp, NULL) != 0) {
-        perror("pthread_create for timestamp");
-        return 1;
+    perror("pthread_create for timestamp");
+    return 1;
     }
+    #endif
+    
 
     while (!isError) {
         // Accept a new client connection
@@ -215,7 +229,9 @@ void do_shutdown(void) {
 
     //cleanup files
     fclose(file); 
-    remove("/var/tmp/aesdsocketdata");
+#ifndef USE_AESD_CHAR_DEVICE
+    remove(DATA_FILE);
+#endif
 }
 
 

@@ -109,7 +109,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     size_t index;
     bool full_packet;
 
-        struct aesd_buffer_entry new_entry;
+    struct aesd_buffer_entry new_entry;
+    struct aesd_buffer_entry *last_entry;
 
 
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
@@ -172,14 +173,25 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     write_dev->buffer_size += index;
 
     //if a full packet was recieved we add the buffer into an entry
-    //if (full_packet) {
+    if (full_packet) {
 
         new_entry.size = write_dev->buffer_size;
         new_entry.buffptr = write_dev->dev_buffer;
 
 
+        if (write_dev->circ_buffer.full) 
+        {
+            last_entry = &write_dev->circ_buffer.entry[write_dev->circ_buffer.in_offs];
+            if (last_entry->buffptr){
+                kfree(last_entry->buffptr);
+            }
+            last_entry->buffptr=NULL;
+            last_entry->size=0;
+        }
         aesd_circular_buffer_add_entry(&write_dev->circ_buffer, &new_entry);
-    //}
+    
+        write_dev->buffer_size=0;
+        }
 
     retval = index;
 
@@ -247,11 +259,16 @@ int aesd_init_module(void)
 
 void aesd_cleanup_module(void)
 {
+    uint8_t index;
+    struct aesd_buffer_entry *entry;
+
     dev_t devno = MKDEV(aesd_major, aesd_minor);
 
     cdev_del(&aesd_device.cdev);
 
-    kfree(&aesd_device.circ_buffer);
+    AESD_CIRCULAR_BUFFER_FOREACH(entry, &aesd_device.circ_buffer, index) {
+        kfree(entry->buffptr);
+        }
 
     mutex_destroy(&aesd_device.lock);
 

@@ -19,16 +19,19 @@ FILE *file;
 
 int server_fd;
 
-
+// Mutex to protect the linked list
+pthread_mutex_t listMutex;
+// Mutex to protect file access
+pthread_mutex_t fileMutex;
 
 
 int main(int argc, char *argv[]) {
-  int status;
+  //int status;
   isDaemon=false;
   struct addrinfo hints;
   struct addrinfo *servinfo;
   struct sigaction new_action;
-  int ret;
+  //int ret;
   
 
   //Catch daemon flag(s)
@@ -86,15 +89,21 @@ int main(int argc, char *argv[]) {
 
     printf("Listening on port 9000\n");
 
-    // Create a thread for timestamping
-    pthread_t timestamp_thread;
+
     
     #ifndef USE_AESD_CHAR_DEVICE
+
+    // Create a thread for timestamping
+    pthread_t timestamp_thread;
+
     if (pthread_create(&timestamp_thread, NULL, timestamp, NULL) != 0) {
     perror("pthread_create for timestamp");
     return 1;
     }
     #endif
+
+    pthread_mutex_init(&fileMutex, NULL);
+    pthread_mutex_init(&listMutex, NULL);
     
 
     while (!isError) {
@@ -222,13 +231,40 @@ void* timestamp(void * arg){
 
 void do_shutdown(void) {
     //join threads
-    removeCompletedThreads();
+    pthread_mutex_lock(&listMutex);
+    Node* current = head;
+    Node* prev = NULL;
 
+    while (current != NULL) {
+        // Join and cleanup the thread
+        pthread_join(current->data->threadId, NULL);
+
+        // Remove the node from the list
+        if (prev == NULL) {
+            head = current->next;
+            free(current->data);
+            free(current);
+            current = head;
+        } else {
+            prev->next = current->next;
+            free(current->data);
+            free(current);
+            current = prev->next;
+        }
+    }
+
+    pthread_mutex_unlock(&listMutex);
+
+    pthread_mutex_destroy(&fileMutex);
+    pthread_mutex_destroy(&listMutex);
     //cleanup sockets
     close(server_fd);
 
     //cleanup files
-    fclose(file); 
+    if (file !=NULL){
+        fclose(file); 
+
+    }
 #ifndef USE_AESD_CHAR_DEVICE
     remove(DATA_FILE);
 #endif

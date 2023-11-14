@@ -18,6 +18,7 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/fs.h> // file_operations
+#include <linux/uaccess.h>
 #include "aesdchar.h"
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
@@ -217,12 +218,33 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     return retval;
 }
 
+loff_t aesd_llseek(struct file *file, loff_t offset, int whence) {
+    struct aesd_dev *dev = file->private_data;
+    loff_t new_pos;
+    //size_t *actual_offset;
+
+
+    mutex_lock(&dev->lock);
+    //aesd_circular_buffer_find_entry_offset_for_fpos(*dev->circ_buffer, offset, actual_offset);
+    new_pos = fixed_size_llseek(file, offset, whence, dev->circ_buffer.size);
+
+    if (new_pos < 0)
+        return -EINVAL;
+
+    file->f_pos = new_pos;
+
+    mutex_unlock(&dev->lock);
+    return new_pos;
+
+}
+
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,
     .read =     aesd_read,
     .write =    aesd_write,
     .open =     aesd_open,
     .release =  aesd_release,
+    .llseek =   aesd_llseek,
 };
 
 static int aesd_setup_cdev(struct aesd_dev *dev)

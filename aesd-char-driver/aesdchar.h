@@ -26,9 +26,7 @@
 
 struct aesd_dev
 {
-    /**
-     * TODO: Add structure(s) and locks needed to complete assignment requirements
-     */
+
     struct mutex lock; // locking primitive
     struct aesd_circular_buffer circ_buffer; //circular buffer for dev
     struct aesd_buffer_entry working_entry; //working entry (for writes before \n)

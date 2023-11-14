@@ -33,10 +33,7 @@ typedef struct node {
     struct node* next;
 } Node;
 
-// Mutex to protect the linked list
-pthread_mutex_t listMutex = PTHREAD_MUTEX_INITIALIZER;
-// Mutex to protect file access
-pthread_mutex_t fileMutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 //thread functions
 void* client_handler(void* arg);

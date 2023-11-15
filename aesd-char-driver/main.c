@@ -50,7 +50,7 @@ loff_t aesd_llseek(struct file *file, loff_t offset, int whence) {
 }
 
 long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
-    uint8_t cmd_index;
+    //uint8_t cmd_index;
     struct aesd_dev *dev = filp->private_data;
     int i;
     size_t updated_offset;
@@ -70,25 +70,25 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
                 
                 mutex_lock(&dev->lock);
                 
-                if (dev->circ_buffer.full) {
-                    cmd_index = (dev->circ_buffer.out_offs - cmd_index) %AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-                } else {
-                    if (seekto.write_cmd > dev->circ_buffer.out_offs)
-                    {
-                        mutex_unlock(&dev->lock);
-                        return -EINVAL; // command not written yet
-                    }
-                    cmd_index = seekto.write_cmd;
-                }
+                //if (dev->circ_buffer.full) {
+                //    cmd_index = (dev->circ_buffer.out_offs - cmd_index) %AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+                //} else {
+                //    if (seekto.write_cmd > dev->circ_buffer.out_offs)
+                //    {
+                //        mutex_unlock(&dev->lock);
+                 //       return -EINVAL; // command not written yet
+                 //   }
+                  //  cmd_index = seekto.write_cmd;
+                //}
 
-                if (seekto.write_cmd_offset > dev->circ_buffer.entry[cmd_index].size)
+                if (seekto.write_cmd_offset > dev->circ_buffer.entry[seekto.write_cmd].size)
                 {
                     mutex_unlock(&dev->lock);
                     return -EINVAL; // outside of parameters
                     
                 } 
 
-                for (i = 0; i < cmd_index; i ++){
+                for (i = 0; i < seekto.write_cmd; i ++){
                     updated_offset += dev->circ_buffer.entry[i].size;
                 }
 

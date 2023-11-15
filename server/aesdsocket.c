@@ -147,89 +147,120 @@ void* client_handler(void *arg)
     ssize_t bytes_received;
     bool full_cmd = false;
     char *ioctl_cmd;
+    size_t bytes_written;
     ioctl_cmd = "AESDCHAR_IOCSEEKTO";
-    //memset(buffer, 0, sizeof(buffer)); //clear buffer
+    memset(buffer, '\0', sizeof(buffer)); //clear buffer
 
 
-    //while loop to receive whole command
-
-    //pthread_mutex_lock(&fileMutex); // Lock for file access
-    //file = fopen(DATA_FILE, "a+");
-    while ((bytes_received = recv(thread_data->client_fd, buffer, sizeof(buffer), 0)) > 0) {
-           // fwrite(buffer, 1, bytes_received, file);
-
+    //while loop to receive whole command, write command to buffer
+    while (!full_cmd) {
+        bytes_received = recv(thread_data->client_fd, buffer, sizeof(buffer), 0);
         if (buffer[bytes_received-1]=='\n') {
             full_cmd = true;
             break;
         }
+        if (bytes_received == 0) {
+            printf("closed connection\n");
+            break;
+        }
     }
-    //fclose(file);
-    //pthread_mutex_unlock(&fileMutex); // Unlock file access
+    printf("recieved full cmd: %s\n and bytes_recieved is %ld\n", buffer, bytes_received);
 
-    if(full_cmd){
-        printf("found full command\n");
-        pthread_mutex_lock(&fileMutex); // Lock for file access
-        //file = fopen(DATA_FILE, "a+");
-        bool ioctl_found = (strstr(buffer, ioctl_cmd) != NULL);
+
+    if(full_cmd){ //when the full command is recieved, write it to buffer
+        printf("in full command\n");
+
+        bool ioctl_found = (strstr(buffer, ioctl_cmd) != NULL); //Check if the command is ioctl
+        if (pthread_mutex_lock(&fileMutex) !=0) {
+            printf("error with mutex lock\n");
+        } // Lock for file access
 
         if (ioctl_found) {
             printf("found ioctl command\n");
             struct aesd_seekto seekto;
-            sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto.write_cmd, &seekto.write_cmd_offset);
-            file_fd = open(DATA_FILE,  O_RDWR ,0666);
+            sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto.write_cmd, &seekto.write_cmd_offset); //Populate seekto structure
+            printf("seek to at %d and %d\n", seekto.write_cmd, seekto.write_cmd_offset);
+
+
+            file_fd = open(DATA_FILE,  O_RDWR ,0666); // open data file
+
             if(file_fd == -1 ) {
                 printf("file error\n");
                 fprintf(stderr, "file open error: %d\n", errno);
             }
-            printf("seek to at %d and %d\n", seekto.write_cmd, seekto.write_cmd_offset);
 
-            int ioctl_ret = ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto);
+            int ioctl_ret = ioctl(file_fd, AESDCHAR_IOCSEEKTO, &seekto); // ioctl on file
             if(ioctl_ret < 0) {
                 printf("ioctl error %d", ioctl_ret);
             }
-
-            //TODO add send back info
-
-            //close(file_fd);
+            //keep file open for send back
 
         } else { //write command to file
-            //file_fd = open(DATA_FILE, O_CREAT | O_RDWR | O_APPEND,0666);
-            file = fopen(DATA_FILE, "a+");
-            fwrite(buffer, 1, bytes_received, file);
-            //write(file_fd, buffer, bytes_received);
-            fclose(file);
-            pthread_mutex_unlock(&fileMutex); // Unlock file access
+            printf("ioctl not found, attempting to write...\n");
+            file_fd = open(DATA_FILE, O_CREAT | O_RDWR | O_APPEND ,0666); //open file for write
+            
+            if (file_fd == -1) {
+                fprintf(stderr, "file open error: %d\n", errno);
+            }
+            bytes_written = write(file_fd, buffer, bytes_received);
+            if( bytes_written == -1 ) {
+                fprintf(stderr, "write error: %d\n", errno);
+            }
+            printf("wrote %ld bytes\n", bytes_written);
+            close(file_fd);
+            //fclose(file);
+            //pthread_mutex_unlock(&fileMutex); // Unlock file access
 
         }
+        if(!ioctl_found) { //reopen closed file to send back
+            file_fd = open(DATA_FILE, O_RDONLY, 0644);
+        }
 
+        memset(buffer, '\0', sizeof(buffer)); //clear buffer
+        int bytes_read; 
+        int sent_bytes = 0;
 
+        while (1) {
+            bytes_read = read(file_fd, buffer, sizeof(buffer));
+            if (bytes_read == -1) {
+                printf("error reading file\n");
+                break;
+            }
+            if (bytes_read == 0) {
+                printf("reached eof\n");
+                break;
+            }
 
+            sent_bytes= send(thread_data->client_fd, buffer, bytes_read, 0);
+            printf("send %d bytes\n", sent_bytes);
+            
+        }
 
-        
+        close(file_fd);
         pthread_mutex_unlock(&fileMutex); // Unlock file access
         
     }
 
-    char* line = NULL;
-    size_t len = 0;
-    ssize_t read_size = 0;
+    //char* line = NULL;
+    //size_t len = 0;
+    //ssize_t read_size = 0;
 
     ///send the data back either way
     //int sent_bytes = 0;
     //memset(buffer, 0, sizeof(buffer)); //clear buffer
 
-    pthread_mutex_lock(&fileMutex); // Lock for file access
-    file = fopen(DATA_FILE, "a+");
-    //file_fd = open(DATA_FILE, O_RDONLY, 0644);
+    //pthread_mutex_lock(&fileMutex); // Lock for file access
+    //file = fopen(DATA_FILE, "a+");
+    //
 
-    while ((read_size = getline(&line, &len, file))  !=-1) {
-            send(thread_data->client_fd, line, read_size, 0);
-    }
-    fclose(file);
+    //while ((read_size = getline(&line, &len, file))  !=-1) {
+    //        send(thread_data->client_fd, line, read_size, 0);
+   // }
+    //fclose(file);
 
     //int bytes_read = read(file_fd,)
     //close(file_fd);
-    pthread_mutex_unlock(&fileMutex); // Unlock file access
+    //pthread_mutex_unlock(&fileMutex); // Unlock file access
 
     // Mark the thread as complete
     thread_data->isComplete = 1;

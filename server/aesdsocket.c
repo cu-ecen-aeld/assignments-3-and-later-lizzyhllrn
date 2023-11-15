@@ -171,9 +171,7 @@ void* client_handler(void *arg)
         printf("in full command\n");
 
         bool ioctl_found = (strstr(buffer, ioctl_cmd) != NULL); //Check if the command is ioctl
-        if (pthread_mutex_lock(&fileMutex) !=0) {
-            printf("error with mutex lock\n");
-        } // Lock for file access
+
 
         if (ioctl_found) {
             printf("found ioctl command\n");
@@ -181,6 +179,9 @@ void* client_handler(void *arg)
             sscanf(buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto.write_cmd, &seekto.write_cmd_offset); //Populate seekto structure
             printf("seek to at %d and %d\n", seekto.write_cmd, seekto.write_cmd_offset);
 
+            if (pthread_mutex_lock(&fileMutex) !=0) {
+                printf("error with mutex lock\n");
+            } // Lock for file access
 
             file_fd = open(DATA_FILE,  O_RDWR ,0666); // open data file
 
@@ -197,6 +198,9 @@ void* client_handler(void *arg)
 
         } else { //write command to file
             printf("ioctl not found, attempting to write...\n");
+            if (pthread_mutex_lock(&fileMutex) !=0) {
+                printf("error with mutex lock\n");
+            } // Lock for file access
             file_fd = open(DATA_FILE, O_CREAT | O_RDWR | O_APPEND ,0666); //open file for write
             
             if (file_fd == -1) {
@@ -208,11 +212,16 @@ void* client_handler(void *arg)
             }
             printf("wrote %ld bytes\n", bytes_written);
             close(file_fd);
+            pthread_mutex_unlock(&fileMutex); // Unlock file access
+
             //fclose(file);
             //pthread_mutex_unlock(&fileMutex); // Unlock file access
 
         }
         if(!ioctl_found) { //reopen closed file to send back
+            if (pthread_mutex_lock(&fileMutex) !=0) {
+                printf("error with mutex lock\n");
+            } // Lock for file access
             file_fd = open(DATA_FILE, O_RDONLY, 0644);
         }
 
@@ -221,6 +230,7 @@ void* client_handler(void *arg)
         int sent_bytes = 0;
 
         while (1) {
+            
             bytes_read = read(file_fd, buffer, sizeof(buffer));
             if (bytes_read == -1) {
                 printf("error reading file\n");

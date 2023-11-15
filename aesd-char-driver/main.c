@@ -62,47 +62,31 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto))!=0)
             {
                 return -EFAULT;
-            } else {
-                if (seekto.write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
+            } 
+            if (seekto.write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
                    
                    return -EINVAL;
-                }
-                
-                mutex_lock(&dev->lock);
-                
-                //if (dev->circ_buffer.full) {
-                //    cmd_index = (dev->circ_buffer.out_offs - cmd_index) %AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-                //} else {
-                //    if (seekto.write_cmd > dev->circ_buffer.out_offs)
-                //    {
-                //        mutex_unlock(&dev->lock);
-                 //       return -EINVAL; // command not written yet
-                 //   }
-                  //  cmd_index = seekto.write_cmd;
-                //}
-
-                if (seekto.write_cmd_offset > dev->circ_buffer.entry[seekto.write_cmd].size)
-                {
-                    mutex_unlock(&dev->lock);
-                    return -EINVAL; // outside of parameters
-                    
-                } 
-
-                for (i = 0; i < seekto.write_cmd; i ++){
-                    updated_offset += dev->circ_buffer.entry[i].size;
-                }
-
-                filp->f_pos = updated_offset + seekto.write_cmd_offset;
-
-                mutex_unlock(&dev->lock);
-
-                // call llseek function to move file pointer
-            //if(aesd_llseek(filp, updated_offset, SEEK_SET) < 0){
-             //   return -EFAULT;
-            //}
-
-                break;
             }
+
+            mutex_lock(&dev->lock);
+
+            if (seekto.write_cmd_offset > dev->circ_buffer.entry[seekto.write_cmd].size)
+            {
+                mutex_unlock(&dev->lock);
+                return -EINVAL; // outside of parameters
+                
+            } 
+
+            for (i = 0; i < seekto.write_cmd; i ++){
+                updated_offset += dev->circ_buffer.entry[i].size;
+            }
+
+            filp->f_pos = updated_offset + seekto.write_cmd_offset;
+
+            mutex_unlock(&dev->lock);
+
+            break;
+            
 
         default: 
             return -EINVAL;

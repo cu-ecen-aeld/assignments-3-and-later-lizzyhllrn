@@ -241,27 +241,6 @@ void* client_handler(void *arg)
         
     }
 
-    //char* line = NULL;
-    //size_t len = 0;
-    //ssize_t read_size = 0;
-
-    ///send the data back either way
-    //int sent_bytes = 0;
-    //memset(buffer, 0, sizeof(buffer)); //clear buffer
-
-    //pthread_mutex_lock(&fileMutex); // Lock for file access
-    //file = fopen(DATA_FILE, "a+");
-    //
-
-    //while ((read_size = getline(&line, &len, file))  !=-1) {
-    //        send(thread_data->client_fd, line, read_size, 0);
-   // }
-    //fclose(file);
-
-    //int bytes_read = read(file_fd,)
-    //close(file_fd);
-    //pthread_mutex_unlock(&fileMutex); // Unlock file access
-
     // Mark the thread as complete
     thread_data->isComplete = 1;
 

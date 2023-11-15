@@ -11,7 +11,6 @@ Node* head =NULL;
 
 //File variables
 FILE *file;
-int file_fd;
 #ifdef USE_AESD_CHAR_DEVICE
     #define DATA_FILE "/dev/aesdchar"
 
@@ -144,6 +143,7 @@ void* client_handler(void *arg)
     
     // Handle the client connection, e.g., read and write data
     char buffer[1024];
+    int file_fd;
     ssize_t bytes_received;
     bool full_cmd = false;
     char *ioctl_cmd;
@@ -210,7 +210,7 @@ void* client_handler(void *arg)
             if( bytes_written == -1 ) {
                 fprintf(stderr, "write error: %d\n", errno);
             }
-            printf("wrote %ld bytes\n of %s", bytes_written, buffer);
+            printf("wrote %ld bytes of %s", bytes_written, buffer);
             close(file_fd);
             pthread_mutex_unlock(&fileMutex); // Unlock file access
 
@@ -230,7 +230,8 @@ void* client_handler(void *arg)
         int sent_bytes = 0;
 
         while (1) {
-            
+            off_t position = lseek(file_fd, 0, SEEK_CUR);
+            printf("current file position: %ld", position);
             bytes_read = read(file_fd, buffer, sizeof(buffer));
             if (bytes_read == -1) {
                 printf("error reading file\n");
@@ -242,7 +243,11 @@ void* client_handler(void *arg)
             }
 
             sent_bytes= send(thread_data->client_fd, buffer, bytes_read, 0);
-            printf("send %d bytes\n of %s\n", sent_bytes, buffer);
+            if (sent_bytes == -1) {
+                fprintf(stderr, "sent error: %d\n", errno);
+
+            }
+            printf("sent %d bytes of %s\n", sent_bytes, buffer);
             
         }
 

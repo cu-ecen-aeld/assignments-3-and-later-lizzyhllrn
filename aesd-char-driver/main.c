@@ -20,6 +20,7 @@
 #include <linux/fs.h> // file_operations
 #include <linux/uaccess.h>
 #include "aesdchar.h"
+#include "aesd_ioctl.h"
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
@@ -237,6 +238,64 @@ loff_t aesd_llseek(struct file *file, loff_t offset, int whence) {
     return new_pos;
 
 }
+
+long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+    uint8_t cmd_index;
+    struct aesd_dev *dev = filp->private_data;
+    int i;
+    size_t updated_offset;
+    struct aesd_seekto seekto;
+
+    switch(cmd) {
+        case AESDCHAR_IOCSEEKTO:
+
+            if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto))!=0)
+            {
+                return -EFAULT;
+            } else {
+                if (seekto.write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
+                   
+                   return -EINVAL;
+                }
+                
+                mutex_lock(&dev->lock);
+                
+                if (dev->circ_buffer.full) {
+                    cmd_index = (dev->circ_buffer.out_offs - cmd_index) %AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+                } else {
+                    if (seekto.write_cmd > dev->circ_buffer.out_offs)
+                    {
+                        mutex_unlock(&dev->lock);
+                        return -EINVAL; // command not written yet
+                    }
+                    cmd_index = seekto.write_cmd;
+                }
+
+                if (seekto.write_cmd_offset > dev->circ_buffer.entry[cmd_index].size)
+                {
+                    mutex_unlock(&dev->lock);
+                    return -EINVAL; // outside of parameters
+                    
+                } 
+
+                for (i = 0; i < cmd_index; i ++){
+                    updated_offset += dev->circ_buffer.entry[i].size;
+                }
+
+                filp->f_pos = updated_offset + seekto.write_cmd_offset;
+
+                mutex_unlock(&dev->lock);
+                break;
+            }
+
+        default: 
+            return -EINVAL;
+    }
+
+    return 0;
+}
+
+
 
 struct file_operations aesd_fops = {
     .owner =    THIS_MODULE,

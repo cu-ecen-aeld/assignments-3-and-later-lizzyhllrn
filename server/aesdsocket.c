@@ -210,7 +210,7 @@ void* client_handler(void *arg)
             if( bytes_written == -1 ) {
                 fprintf(stderr, "write error: %d\n", errno);
             }
-            printf("wrote %ld bytes\n", bytes_written);
+            printf("wrote %ld bytes\n of %s", bytes_written, buffer);
             close(file_fd);
             pthread_mutex_unlock(&fileMutex); // Unlock file access
 
@@ -242,7 +242,7 @@ void* client_handler(void *arg)
             }
 
             sent_bytes= send(thread_data->client_fd, buffer, bytes_read, 0);
-            printf("send %d bytes\n", sent_bytes);
+            printf("send %d bytes\n of %s\n", sent_bytes, buffer);
             
         }
 

@@ -49,13 +49,47 @@ loff_t aesd_llseek(struct file *file, loff_t offset, int whence) {
 
 }
 
-long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
-    //uint8_t cmd_index;
+static long aesd_file_offset( struct file *filp, unsigned int write_cmd, unsigned int write_cmd_offset) {
+
+    long retval = 0;
     struct aesd_dev *dev = filp->private_data;
-    int i;
-    size_t updated_offset;
+    loff_t updated_offset = 0;
+    unsigned int i;
+
+    mutex_lock(&dev->lock);
+    if (write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
+        mutex_unlock(&dev->lock);
+        return -EINVAL;
+    }
+
+    if (write_cmd_offset > dev->circ_buffer.entry[write_cmd].size)
+    {
+        mutex_unlock(&dev->lock);
+        return -EINVAL; // outside of parameters
+        
+    } 
+
+    for (i = 0; i < write_cmd; i ++){
+        updated_offset += dev->circ_buffer.entry[i].size;
+    }
+
+    filp->f_pos = updated_offset + write_cmd_offset;
+
+    mutex_unlock(&dev->lock);
+
+
+    return retval;
+}
+
+long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+
+    long retval = 0;
     struct aesd_seekto seekto;
-    uint32_t write_cmd, write_offset;
+
+    if ((_IOC_TYPE(cmd) != AESD_IOC_MAGIC) || (_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR)){
+        retval = ENOTTY;
+        return retval;
+    }
 
     switch(cmd) {
         case AESDCHAR_IOCSEEKTO:
@@ -63,39 +97,19 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             if (copy_from_user(&seekto, (const void __user *)arg, sizeof(seekto))!=0)
             {
                 return -EFAULT;
-            } 
-            write_cmd = seekto.write_cmd;
-            write_offset = seekto.write_cmd_offset;
-            if (write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
-                   
-                   return -EINVAL;
+            } else {
+            retval = aesd_file_offset(filp, seekto.write_cmd, seekto.write_cmd_offset);
             }
-
-            mutex_lock(&dev->lock);
-
-            if (write_offset > dev->circ_buffer.entry[write_cmd].size)
-            {
-                mutex_unlock(&dev->lock);
-                return -EINVAL; // outside of parameters
-                
-            } 
-
-            for (i = 0; i < write_cmd; i ++){
-                updated_offset += dev->circ_buffer.entry[i].size;
-            }
-
-            filp->f_pos = updated_offset + write_offset;
-
-            mutex_unlock(&dev->lock);
 
             break;
             
 
         default: 
             return -EINVAL;
+            break;
     }
 
-    return 0;
+    return retval;
 }
 
 int aesd_open(struct inode *inode, struct file *filp)

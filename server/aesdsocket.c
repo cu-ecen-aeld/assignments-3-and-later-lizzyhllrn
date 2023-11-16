@@ -154,7 +154,8 @@ void* client_handler(void *arg)
     bool full_cmd = false;
     size_t bytes_written;
     bool ioctl_found = false;
-    
+    struct aesd_seekto seekto;
+
     memset(receive_buffer, '\0', BUF_LEN); //clear buffer
     memset(send_buffer, '\0', BUF_LEN); //clear buffer
 
@@ -162,6 +163,9 @@ void* client_handler(void *arg)
 
     //while loop to receive whole command, write command to buffer
     while (!full_cmd) {
+        seekto.write_cmd = 0;
+        seekto.write_cmd_offset = 0;
+
         bytes_received = recv(thread_data->client_fd, receive_buffer, BUF_LEN, 0);
         if (bytes_received == -1) {
             fprintf(stderr, "receive error");
@@ -176,7 +180,7 @@ void* client_handler(void *arg)
 
         if (ioctl_found) {
             printf("found ioctl command\n");
-            struct aesd_seekto seekto;
+
             sscanf(receive_buffer, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto.write_cmd, &seekto.write_cmd_offset); //Populate seekto structure
             printf("seek to at %d and %d\n", seekto.write_cmd, seekto.write_cmd_offset);
 
@@ -239,11 +243,9 @@ void* client_handler(void *arg)
     }
 
     while (1) {
-        //off_t position = lseek(file_fd, 0, SEEK_CUR);
-        //printf("current file position: %ld", position);
-        //if (pthread_mutex_lock(&fileMutex) !=0) {
-        //    printf("error with mutex lock\n");
-        //} // Lock for file access
+        off_t position = lseek(file_fd, 0, SEEK_CUR);
+        printf("current file position: %ld", position);
+ 
         printf("in while loop, sending data back\n");
         bytes_read = read(file_fd, send_buffer, BUF_LEN);
         if (bytes_read == -1) {

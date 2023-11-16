@@ -55,6 +55,7 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
     int i;
     size_t updated_offset;
     struct aesd_seekto seekto;
+    uint32_t write_cmd, write_offset;
 
     switch(cmd) {
         case AESDCHAR_IOCSEEKTO:
@@ -63,25 +64,27 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
             {
                 return -EFAULT;
             } 
-            if (seekto.write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
+            write_cmd = seekto.write_cmd;
+            write_offset = seekto.write_cmd_offset;
+            if (write_cmd > AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED) {
                    
                    return -EINVAL;
             }
 
             mutex_lock(&dev->lock);
 
-            if (seekto.write_cmd_offset > dev->circ_buffer.entry[seekto.write_cmd].size)
+            if (write_offset > dev->circ_buffer.entry[write_cmd].size)
             {
                 mutex_unlock(&dev->lock);
                 return -EINVAL; // outside of parameters
                 
             } 
 
-            for (i = 0; i < seekto.write_cmd; i ++){
+            for (i = 0; i < write_cmd; i ++){
                 updated_offset += dev->circ_buffer.entry[i].size;
             }
 
-            filp->f_pos = updated_offset + seekto.write_cmd_offset;
+            filp->f_pos = updated_offset + write_offset;
 
             mutex_unlock(&dev->lock);
 
@@ -180,10 +183,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     struct aesd_buffer_entry new_entry;
    // struct aesd_buffer_entry *last_entry;
-
-   //const char command_val[18] = "AESDCHAR_IOCSEEKTO";
-
-
 
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
     //get the device

@@ -229,9 +229,9 @@ void* client_handler(void *arg)
 
 
     if(!ioctl_found) { //reopen closed file to send back
-            //if (pthread_mutex_lock(&fileMutex) !=0) {
-            //    printf("error with mutex lock\n");
-            //} // Lock for file access
+            if (pthread_mutex_lock(&fileMutex) !=0) {
+                printf("error with mutex lock\n");
+            } // Lock for file access
             file_fd = open(DATA_FILE, O_RDONLY, 0644);
             if (file_fd == -1) {
                 fprintf(stderr, "file open error: %d\n", errno);
@@ -241,9 +241,10 @@ void* client_handler(void *arg)
     while (1) {
         //off_t position = lseek(file_fd, 0, SEEK_CUR);
         //printf("current file position: %ld", position);
-        if (pthread_mutex_lock(&fileMutex) !=0) {
-            printf("error with mutex lock\n");
-        } // Lock for file access
+        //if (pthread_mutex_lock(&fileMutex) !=0) {
+        //    printf("error with mutex lock\n");
+        //} // Lock for file access
+        printf("in while loop, sending data back\n");
         bytes_read = read(file_fd, send_buffer, BUF_LEN);
         if (bytes_read == -1) {
             printf("error reading file\n");

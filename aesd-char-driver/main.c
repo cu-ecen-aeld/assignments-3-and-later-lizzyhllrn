@@ -179,7 +179,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     bool full_packet;
 
     struct aesd_buffer_entry new_entry;
-    struct aesd_buffer_entry *last_entry;
+   // struct aesd_buffer_entry *last_entry;
 
    //const char command_val[18] = "AESDCHAR_IOCSEEKTO";
 
@@ -256,7 +256,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         new_entry.size = write_dev->buffer_size;
         new_entry.buffptr = write_dev->dev_buffer;
 
-
+        /*
         if (write_dev->circ_buffer.full) 
         {
             last_entry = &write_dev->circ_buffer.entry[write_dev->circ_buffer.in_offs];
@@ -266,6 +266,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
             last_entry->buffptr=NULL;
             last_entry->size=0;
         }
+        */
         aesd_circular_buffer_add_entry(&write_dev->circ_buffer, &new_entry);
 
         //kfree(write_dev->dev_buffer);

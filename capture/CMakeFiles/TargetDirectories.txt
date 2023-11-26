@@ -1,0 +1,3 @@
+/home/lizspc/assignment-1-lizzyhllrn/capture/CMakeFiles/DisplayImage.dir
+/home/lizspc/assignment-1-lizzyhllrn/capture/CMakeFiles/edit_cache.dir
+/home/lizspc/assignment-1-lizzyhllrn/capture/CMakeFiles/rebuild_cache.dir

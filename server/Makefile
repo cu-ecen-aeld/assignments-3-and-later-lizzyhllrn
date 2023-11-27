@@ -1,5 +1,5 @@
 CC ?= $(CROSS_COMPILE)gcc
-SRC := aesdsocket-simple.c
+SRC := aesdsocket-simple-lib.c
 TARGET ?= aesdsocket-simple
 OBJS := $(SRC:.c=.o)
 CFLAGs ?= -g -Wall -Werror

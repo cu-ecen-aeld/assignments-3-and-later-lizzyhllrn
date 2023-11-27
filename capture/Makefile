@@ -12,7 +12,7 @@ ifeq ($(CFLAGS),)
 endif
 CDEFS=
 
-LIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video -lrt -lstdc++fs -lpthread -lstdc++
+LIBS= -lopencv_core -lopencv_flann -lopencv_video -lrt -lstdc++fs -lpthread -lstdc++
 #LIBS=
 HFILES= 
 CFILES= capture.cpp

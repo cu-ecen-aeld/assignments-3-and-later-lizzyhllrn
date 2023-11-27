@@ -1,5 +1,4 @@
 /*
-* To compile: g++ opencv_test2.cpp -o opencv_test2 $(pkg-config --cflags --libs opencv)
 */
 #include <opencv2/opencv.hpp>
 #include <opencv2/tracking.hpp>

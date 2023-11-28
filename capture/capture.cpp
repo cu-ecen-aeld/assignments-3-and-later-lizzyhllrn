@@ -46,16 +46,20 @@ int main(int argc, char **argv) {
 
             if (!motionDetected)
             {
-                motionDetected = 1;
+                motionDetected = motionDetected + 1;
                 printf("Motion Detected");
             }
             
         }
     
-        imshow("Camera", frame);
+        //imshow("Camera", frame);
         
-        if(waitKey(1) == 27){
-            //exit if ESC is pressed
+        //if(waitKey(1) == 27){
+        //    //exit if ESC is pressed
+        //    break;
+        //}
+        if (motionDetected > 20)
+        {
             break;
         }
     

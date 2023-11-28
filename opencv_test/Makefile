@@ -1,5 +1,5 @@
 # the ?= is not compatible in all the make versions so making it cross compatible by using := instead
-INCLUDE_DIRS = -I/usr/include/opencv4
+INCLUDE_DIRS =-I/usr/include/opencv4/opencv2
 LIB_DIRS = 
 CC 	:= $(CROSS_COMPILE)g++
 
@@ -20,7 +20,7 @@ clean:
 	-rm -f aesd_opencv
 
 aesd_opencv: aesd_opencv.cpp
-	$(CC) aesd_opencv.cpp $(CFLAGS) -o $@ `pkg-config --libs opencv4` $(LIBS)
+	$(CC) aesd_opencv.cpp $(CFLAGS) -I/usr/include/opencv4/opencv2 -o $@ `pkg-config --libs opencv4` $(LIBS)
 
 depend:
 

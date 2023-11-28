@@ -19,7 +19,7 @@ clean:
 	-rm -f capture
 
 capture: capture.cpp
-	$(CC) capture.cpp $(CFLAGS) -o capture.o `pkg-config --cflags --libs opencv4` $(LIBS)
+	$(CC) capture.cpp $(CFLAGS) -o capture `pkg-config --cflags --libs opencv4` $(LIBS)
 
 depend:
 

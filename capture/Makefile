@@ -4,7 +4,7 @@ CC 	:= $(CROSS_COMPILE)g++
 CDEFS=
 CFLAGS:= -O0 -g `pkg-config --cflags opencv4`
 
-LIBS= -lopencv_core -lopencv_tracking -lrt -lstdc++fs -lpthread -lstdc++
+LIBS= -lopencv_core -lopencv_videoio -lrt -lstdc++fs -lpthread -lstdc++
 
 HFILES= 
 CFILES= capture.cpp

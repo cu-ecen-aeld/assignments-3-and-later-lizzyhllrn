@@ -1,6 +1,6 @@
 /*
 */
-#include </usr/include/opencv4/opencv2/opencv.hpp>
+#include <opencv2/opencv.hpp>
 #include <opencv2/tracking.hpp>
 #include <opencv2/core/ocl.hpp>
 #include <unistd.h>

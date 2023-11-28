@@ -11,6 +11,8 @@ default: $(TARGET)
 
 $(TARGET) : $(OBJS)
 	$(CC) $(OBJS) -o $(TARGET) $(CFLAGS) $(INCLUDES) $(LDFLAGS)
+	g++ -c capture.cpp -o capture.o
+	gcc aesdsocket-simple.c capture.o aesdsocket-simple
 
 clean:
 	-rm -f *.o $(TARGET) 

@@ -139,6 +139,8 @@ void* client_handler(void *arg)
     ssize_t bytes_received =0;
     bool full_cmd = false;
     size_t bytes_written;
+    int motionDetected;
+    //char* returnString = "Motion Detected";
 
     memset(receive_buffer, '\0', BUF_LEN); //clear buffer
     memset(send_buffer, '\0', BUF_LEN); //clear buffer
@@ -213,6 +215,13 @@ void* client_handler(void *arg)
         }
         printf("sent %ld bytes of %s\n", sent_bytes, send_buffer);
             
+    }
+
+    motionDetected = capture_motion();
+    if (motionDetected)
+    {
+        //sent_bytes= send(thread_data->client_fd, returnString, sizeof(returnString), 0);
+        printf("motion detected\n");
     }
 
     close(file_fd);

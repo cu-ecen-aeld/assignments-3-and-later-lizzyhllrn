@@ -20,7 +20,7 @@ clean:
 	-rm -f aesd_opencv
 
 aesd_opencv: aesd_opencv.cpp
-	$(CC) aesd_opencv.cpp $(CFLAGS) -o $@ `pkg-config --libs opencv4/opencv2` $(LIBS)
+	$(CC) aesd_opencv.cpp $(CFLAGS) -o $@ `pkg-config --cflags --libs opencv4` $(LIBS)
 
 depend:
 

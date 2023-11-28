@@ -8,7 +8,7 @@
 using namespace cv;
 using namespace std;
  
-int main(int argc, char **argv) {
+int capture_motion(void) {
 
     Mat frame, gray, frameDelta, thresh, firstFrame;
     vector<vector<Point> > cnts;
@@ -61,5 +61,5 @@ int main(int argc, char **argv) {
     
     }
 
-    return 0;
+    return motionDetected;
 }

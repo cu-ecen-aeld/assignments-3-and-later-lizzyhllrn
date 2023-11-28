@@ -44,4 +44,6 @@ void removeCompletedThreads();
 int make_Daemon(void);
 static void signal_handler (int signal_number);
 void do_shutdown(void);
-int start_server(void);
+int capture_motion(void);
+//int start_server(void);
+

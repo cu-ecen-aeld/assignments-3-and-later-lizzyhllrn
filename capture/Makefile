@@ -1,9 +1,9 @@
-INCLUDE_DIRS = -I/usr/include/opencv4
 LIB_DIRS = 
 CC 	:= $(CROSS_COMPILE)g++
 
 CDEFS=
-CFLAGS:= -O0 -g $(INCLUDE_DIRS) $(CDEFS)
+CFLAGS:= -O0 -g `pkg-config --cflags opencv4`
+
 LIBS= -lopencv_core -lopencv_flann -lopencv_video -lrt -lstdc++fs -lpthread -lstdc++
 
 HFILES= 
@@ -23,5 +23,3 @@ capture: capture.cpp
 
 depend:
 
-.cpp.o: $(SRCS)
-	$(CC) $(CFLAGS) -c $<

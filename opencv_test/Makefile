@@ -5,7 +5,7 @@ CC 	:= $(CROSS_COMPILE)g++
 
 CDEFS=
 CFLAGS:= -O0 -g $(INCLUDE_DIRS) $(CDEFS)
-LIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video -lrt -lstdc++fs -lpthread -lstdc++
+LIBS= -lopencv_core -lopencv_flann -lopencv_video -lrt -lstdc++fs -lpthread -lstdc++
 
 HFILES= 
 CFILES= aesd_opencv.cpp

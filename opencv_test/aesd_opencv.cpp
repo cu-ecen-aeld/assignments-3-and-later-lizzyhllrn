@@ -1,5 +1,5 @@
 // This program is a test program to extract input from the camera and display it on the windowx
-#include <opencv2/opencv.hpp>
+#include <opencv4/opencv2/opencv.hpp>
 #include <iostream>
 
 using namespace cv;

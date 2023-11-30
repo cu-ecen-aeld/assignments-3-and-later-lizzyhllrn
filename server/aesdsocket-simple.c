@@ -162,26 +162,6 @@ void* client_handler(void *arg)
             printf("closed connection\n");
             break;
         }
-
-        /*
-        if (pthread_mutex_lock(&fileMutex) !=0) {
-            printf("error with mutex lock\n");
-        } // Lock for file access
-
-        //
-        file_fd = open(DATA_FILE, O_CREAT | O_RDWR | O_APPEND ,0666); //open file for write
-        if (file_fd == -1) {
-            fprintf(stderr, "file open error: %d\n", errno);
-        }
-
-        bytes_written = write(file_fd, receive_buffer, bytes_received);
-        if( bytes_written == -1 ) {
-            fprintf(stderr, "write error: %d\n", errno);
-        }
-
-        close(file_fd);
-        pthread_mutex_unlock(&fileMutex); // Unlock file access
-        */
        
         if (receive_buffer[bytes_received-1]=='\n') {
             full_cmd = true;
@@ -189,8 +169,6 @@ void* client_handler(void *arg)
             break;
         }
     }
-    //printf("recieved full cmd: %s\n and bytes_recieved is %ld\n", receive_buffer, bytes_received);
-
     //client has connected, begin motion tracking
     motionDetected = capture_motion(fileMutex);
 

@@ -1,5 +1,6 @@
 #include "aesdsocket.h"
 #include "../aesd-char-driver/aesd_ioctl.h"
+#include "capture.h"
 //#define USE_AESD_CHAR_DEVICE 1;
 #define BUF_LEN 1024
 
@@ -26,6 +27,8 @@ pthread_mutex_t listMutex;
 // Mutex to protect file access
 pthread_mutex_t fileMutex;
 
+
+int capture_motion(void);
 
 int main(int argc, char *argv[]) {
   //int status;
@@ -92,6 +95,7 @@ int main(int argc, char *argv[]) {
     printf("Listening on port 9000\n");
 
 
+    capture_motion();
     pthread_mutex_init(&fileMutex, NULL);
     pthread_mutex_init(&listMutex, NULL);
     
@@ -216,12 +220,13 @@ void* client_handler(void *arg)
         printf("sent %ld bytes of %s\n", sent_bytes, send_buffer);
             
     }
-
     motionDetected = capture_motion();
+    
     if (motionDetected)
     {
         //sent_bytes= send(thread_data->client_fd, returnString, sizeof(returnString), 0);
         printf("motion detected\n");
+
     }
 
     close(file_fd);

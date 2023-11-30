@@ -5,7 +5,7 @@ CXX := g++
 # Compiler flags
 CFLAGS := -g -Wall -Wextra
 CXXFLAGS := -O0 -g -Wall -Wextra `pkg-config --cflags --libs opencv4`
-LIBS= -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lrt -lstdc++fs -lpthread -lstdc++
+LIBS= `pkg-config --cflags --libs opencv4` -lopencv_core -lopencv_imgproc -lopencv_imgcodecs -lopencv_video -lopencv_videoio -lrt -lstdc++fs -lpthread -lstdc++
 
 # Source files
 C_SRCS := aesdsocket-simple.c

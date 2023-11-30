@@ -1,6 +1,5 @@
 #include "aesdsocket.h"
 #include "../aesd-char-driver/aesd_ioctl.h"
-#include "capture.h"
 //#define USE_AESD_CHAR_DEVICE 1;
 #define BUF_LEN 1024
 
@@ -28,7 +27,7 @@ pthread_mutex_t listMutex;
 pthread_mutex_t fileMutex;
 
 
-int capture_motion(void);
+int capture_motion(pthread_mutex_t fileMutex);
 
 int main(int argc, char *argv[]) {
   //int status;
@@ -95,7 +94,7 @@ int main(int argc, char *argv[]) {
     printf("Listening on port 9000\n");
 
 
-    capture_motion();
+    //capture_motion(fileMutex);
     pthread_mutex_init(&fileMutex, NULL);
     pthread_mutex_init(&listMutex, NULL);
     
@@ -164,10 +163,12 @@ void* client_handler(void *arg)
             break;
         }
 
+        /*
         if (pthread_mutex_lock(&fileMutex) !=0) {
             printf("error with mutex lock\n");
         } // Lock for file access
 
+        //
         file_fd = open(DATA_FILE, O_CREAT | O_RDWR | O_APPEND ,0666); //open file for write
         if (file_fd == -1) {
             fprintf(stderr, "file open error: %d\n", errno);
@@ -180,7 +181,7 @@ void* client_handler(void *arg)
 
         close(file_fd);
         pthread_mutex_unlock(&fileMutex); // Unlock file access
-
+        */
        
         if (receive_buffer[bytes_received-1]=='\n') {
             full_cmd = true;
@@ -188,9 +189,12 @@ void* client_handler(void *arg)
             break;
         }
     }
-    printf("recieved full cmd: %s\n and bytes_recieved is %ld\n", receive_buffer, bytes_received);
+    //printf("recieved full cmd: %s\n and bytes_recieved is %ld\n", receive_buffer, bytes_received);
 
+    //client has connected, begin motion tracking
+    motionDetected = capture_motion(fileMutex);
 
+    //when motion tracking is complete, write contents back to client
     if (pthread_mutex_lock(&fileMutex) !=0) {
         printf("error with mutex lock\n");
     } // Lock for file access
@@ -207,7 +211,7 @@ void* client_handler(void *arg)
             break;
         }
         if (bytes_read == 0) {
-            printf("reached eof\n");
+            //printf("reached eof\n");
             break;
         }
 
@@ -217,18 +221,10 @@ void* client_handler(void *arg)
         if (sent_bytes == -1) {
             fprintf(stderr, "sent error: %d\n", errno);
         }
-        printf("sent %ld bytes of %s\n", sent_bytes, send_buffer);
+        //printf("sent %ld bytes of %s\n", sent_bytes, send_buffer);
             
     }
-    motionDetected = capture_motion();
-    
-    if (motionDetected)
-    {
-        //sent_bytes= send(thread_data->client_fd, returnString, sizeof(returnString), 0);
-        printf("motion detected\n");
-
-    }
-
+     
     close(file_fd);
     pthread_mutex_unlock(&fileMutex); // Unlock file access
 

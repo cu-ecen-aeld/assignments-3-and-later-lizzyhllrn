@@ -19,6 +19,7 @@ int main(int argc, char **argv) {
     camera.set(3, 512);
     camera.set(4, 288);
 
+    printf("waiting on camera to warmup before capturing\n");
     sleep(3);
     camera.read(frame);
 
@@ -47,7 +48,7 @@ int main(int argc, char **argv) {
             if (!motionDetected)
             {
                 motionDetected = motionDetected + 1;
-                printf("Motion Detected");
+                printf("Motion Detected\n");
             }
             
         }

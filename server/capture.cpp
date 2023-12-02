@@ -2,10 +2,13 @@
 */
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/ocl.hpp>
+#include <opencv2/video/background_segm.hpp>
+
 #include <unistd.h>
 #include <pthread.h>
 
 #define DATA_FILE "/var/tmp/aesdsocketdata"
+#define THRES 200
 
 using namespace cv;
 using namespace std;
@@ -14,115 +17,115 @@ extern "C" int capture_motion(pthread_mutex_t fileMutex);
 
 int capture_motion(pthread_mutex_t fileMutex) {
 
-    Mat frame, gray, frameDelta, thresh, firstFrame;
+    Mat frame, fgmask;
     vector<vector<Point> > cnts;
     VideoCapture camera(0, CAP_V4L2); //open camera
-    int motionDetected = 0;
+    if (!camera.isOpened()){
+    //error in opening the video input
+        cerr << "Unable to open camera " << endl;
+        return -1;
+    }
+    bool activeMotion = false;
+    bool frameMotion = false;
     int motionframecount = 0;
+    int motionstillcount=0;
+    int thissum;
+    int frameNum = 0;
     
     //set the video size to 512x288 to process faster
     camera.set(3, 512);
     camera.set(4, 288);
 
-    if (!camera.isOpened()) 
-    {
-        printf("error accessing camera\n");
-        return -1;
-    }
-    printf("waiting on camera to warm up\n");
-    sleep(3);
-    camera.read(frame);
+        //create Background Subtractor objects
+    Ptr<BackgroundSubtractor> pBackSub;
+    pBackSub = createBackgroundSubtractorMOG2();
 
-    //convert to grayscale and set the first frame
-    cvtColor(frame, firstFrame, COLOR_BGR2GRAY);
-    GaussianBlur(firstFrame, firstFrame, Size(21, 21), 0);
+    //printf("waiting on camera to warm up\n");
+    sleep(1);
 
     while(camera.read(frame)) {
 
-        //convert to grayscale
-        cvtColor(frame, gray, COLOR_BGR2GRAY);
-        GaussianBlur(gray, gray, Size(21, 21), 0);
 
-        //compute difference between first frame and current frame
-        absdiff(firstFrame, gray, frameDelta);
-        threshold(frameDelta, thresh, 25, 255, THRESH_BINARY);
-        
-        dilate(thresh, thresh, Mat(), Point(-1,-1), 2);
-        findContours(thresh, cnts, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
-        bool still_looping = true;
-        motionframecount = 0;
+        //update the background model
+        pBackSub->apply(frame, fgmask);
+        frameNum += 1;
 
-        for(int i = 0; i< cnts.size() && still_looping; i++) {
-            if(contourArea(cnts[i]) > 5000) {
+        //reset motion indicator for this frame
+        frameMotion = false;
 
-                // motion detected in this frame
-                motionDetected += 1; //overall motion detected
-                motionframecount+= 1; //
-                still_looping = false;
+        if (frameNum > 100 ) { // give the background filter some time to adjust
+
+        //look for motion in frame
+        thissum = countNonZero(fgmask);
+        if (thissum > THRES) { // there is motion in this frame
+            activeMotion = true;
+            frameMotion = true;
+            motionframecount +=1; // add to frames of motion
+            motionstillcount = 0; // reset frames of still
+
+            if (motionframecount == 1 ) {//first time we detect motion, log it
+                if (pthread_mutex_lock(&fileMutex) !=0) {
+                    printf("error with mutex lock in capture start\n");}
+                FILE* file = fopen(DATA_FILE, "a+");
+                if (file != NULL) {
+                    time_t rawtime;
+                    struct tm* timeinfo;
+                    // Get current time
+                    time(&rawtime);
+                    timeinfo = localtime(&rawtime);
+                    char timestamp[26];
+                    // Format timesteamp
+                    strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
+                    fprintf(file, "Motion Started at: %s\n", timestamp);
+                    fclose(file);
+                }
+                else {
+                    printf("file didn't open\n");
+                }
+                pthread_mutex_unlock(&fileMutex); 
+                //printf("Motion Detected, %d, motionframecount: %d, motionstillcount: %d\n", thissum, motionframecount, motionstillcount);
             }
+
+        } else { //there is not motion in this frame
+            motionstillcount +=1; //add to still frames
             
-        } ///end for loop for frame
+            //if there was motion but not in this frame and it has been still for a few frames, motion has stopped
+            if (activeMotion && !frameMotion && motionstillcount > 10) //we have detected motion before but not in this frame
+            {
+                if (pthread_mutex_lock(&fileMutex) !=0) {
+                    printf("error with mutex lock in capture stop\n");}
 
-        if (motionDetected == 1) {//first time we detect motion, log it
-            if (pthread_mutex_lock(&fileMutex) !=0) {
-                printf("error with mutex lock\n");}
+                FILE* file = fopen(DATA_FILE, "a+");
+                if (file != NULL) {
+                    time_t rawtime;
+                    struct tm* timeinfo;
 
-            FILE* file = fopen(DATA_FILE, "a+");
-            if (file != NULL) {
-                time_t rawtime;
-                struct tm* timeinfo;
+                    // Get current time
+                    time(&rawtime);
+                    timeinfo = localtime(&rawtime);
 
-                // Get current time
-                time(&rawtime);
-                timeinfo = localtime(&rawtime);
+                    char timestamp[26];
+                    // Format timesteamp
+                    strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
 
-                char timestamp[27];
-                // Format timesteamp
-                strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
+                    fprintf(file, "Motion Stopped at: %s\n", timestamp);
+                    fclose(file);
+                }
+                else {
+                    printf("file didn't open\n");
+                }
+                pthread_mutex_unlock(&fileMutex); 
+                //printf("Motion Stopped, %d, motionframecount: %d, motionstillcount: %d\n", thissum, motionframecount, motionstillcount);
+                activeMotion = false; //reset motion detected
+                motionframecount = 0;
+                break;
 
-                fprintf(file, "Motion Started at: %s\n", timestamp);
-                fclose(file);
             }
-            else {
-                printf("file didn't open\n");
-            }
-            pthread_mutex_unlock(&fileMutex); 
-
-            printf("Motion Detected\n");
         }
-
         
-
-        if (motionDetected > 0 && motionframecount == 0) //we have detected motion before but not in this frame
-        {
-            if (pthread_mutex_lock(&fileMutex) !=0) {
-                printf("error with mutex lock\n");}
-
-            FILE* file = fopen(DATA_FILE, "a+");
-            if (file != NULL) {
-                time_t rawtime;
-                struct tm* timeinfo;
-
-                // Get current time
-                time(&rawtime);
-                timeinfo = localtime(&rawtime);
-
-                char timestamp[27];
-                // Format timesteamp
-                strftime(timestamp, sizeof(timestamp),"%a, %d %b %Y %H:%M:%S %z", timeinfo);
-
-                fprintf(file, "Motion Stopped at: %s\n", timestamp);
-                fclose(file);
-            }
-            else {
-                printf("file didn't open\n");
-            }
-            pthread_mutex_unlock(&fileMutex); 
-            printf("motion stopped\n");
-            break;
         }
 
-        if (motionDetected > 1000) {
+        if (motionframecount > 10000) {
             printf("lots of motion\n");
             break;
         }

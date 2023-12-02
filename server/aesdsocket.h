@@ -44,5 +44,6 @@ void removeCompletedThreads();
 int make_Daemon(void);
 static void signal_handler (int signal_number);
 void do_shutdown(void);
+void captureMotion();// for camera capture thread
 
 

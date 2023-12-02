@@ -14,6 +14,7 @@ int server_fd;
 //Global variables
 bool isDaemon;
 bool isError=false;
+bool contCapture = true;
 
 //Linked list head
 Node* head =NULL;
@@ -26,6 +27,11 @@ pthread_mutex_t listMutex;
 // Mutex to protect file access
 pthread_mutex_t fileMutex;
 
+pthread_t motion_thread;
+
+const char *stop_cmd= "stop";
+
+
 
 int capture_motion(pthread_mutex_t fileMutex);
 
@@ -36,6 +42,9 @@ int main(int argc, char *argv[]) {
   struct addrinfo *servinfo;
   struct sigaction new_action;
   //int ret;
+      //capture_motion(fileMutex);
+    pthread_mutex_init(&fileMutex, NULL);
+    pthread_mutex_init(&listMutex, NULL);
   
 
   //Catch daemon flag(s)
@@ -94,9 +103,13 @@ int main(int argc, char *argv[]) {
     printf("Listening on port 9000\n");
 
 
-    //capture_motion(fileMutex);
-    pthread_mutex_init(&fileMutex, NULL);
-    pthread_mutex_init(&listMutex, NULL);
+
+
+   // captureMotion();
+    if (pthread_create(&motion_thread, NULL, captureMotion, NULL) != 0) {
+    perror("pthread_create for timestamp");
+    return 1;
+    }
     
 
     while (!isError) {
@@ -165,12 +178,17 @@ void* client_handler(void *arg)
        
         if (receive_buffer[bytes_received-1]=='\n') {
             full_cmd = true;
-            printf("newline found, breaking while loop\n");
+            //printf("newline found, breaking while loop\n");
             break;
         }
+
     }
-    //client has connected, begin motion tracking
-    motionDetected = capture_motion(fileMutex);
+    if ((strstr(receive_buffer, stop_cmd) != NULL)) {
+    printf("found stop command\n");
+    contCapture = false;
+    
+    }
+
 
     //when motion tracking is complete, write contents back to client
     if (pthread_mutex_lock(&fileMutex) !=0) {
@@ -181,7 +199,7 @@ void* client_handler(void *arg)
     if (file_fd == -1) {
         fprintf(stderr, "file open error: %d\n", errno);
     }
-
+    printf("sending log back\n");
     while (1) {
         bytes_read = read(file_fd, send_buffer, BUF_LEN);
         if (bytes_read == -1) {
@@ -242,6 +260,9 @@ int make_Daemon(void) {
 
 void do_shutdown(void) {
     //join threads
+    contCapture = false;
+
+    pthread_join(motion_thread, NULL);
     pthread_mutex_lock(&listMutex);
     Node* current = head;
     Node* prev = NULL;
@@ -335,4 +356,13 @@ void removeCompletedThreads() {
     }
 
     pthread_mutex_unlock(&listMutex);
+}
+
+
+void captureMotion(){
+    while (contCapture) 
+    {
+        capture_motion(fileMutex);
+    }
+
 }

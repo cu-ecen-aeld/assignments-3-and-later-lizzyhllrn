@@ -22,7 +22,7 @@ int capture_motion(pthread_mutex_t fileMutex) {
     VideoCapture camera(0, CAP_V4L2); //open camera
     if (!camera.isOpened()){
     //error in opening the video input
-        cerr << "Unable to open camera " << endl;
+        printf("Unable to open camera \n");
         return -1;
     }
     bool activeMotion = false;

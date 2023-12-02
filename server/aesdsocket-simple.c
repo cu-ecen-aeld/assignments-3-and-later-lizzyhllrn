@@ -359,7 +359,7 @@ void removeCompletedThreads() {
 }
 
 
-void captureMotion(){
+void* captureMotion(){
     while (contCapture) 
     {
         capture_motion(fileMutex);
